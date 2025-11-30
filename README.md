@@ -2,7 +2,13 @@
 
 An interactive tool that transforms static system design diagrams into explorable, interactive visualizations using AI.
 
-![System Design Visualizer](https://images.unsplash.com/photo-1667372393119-c85c02088981?q=80&w=2000&auto=format&fit=crop)
+## 📸 Screenshots
+
+![Dashboard View](screenshot-1.png)
+*Original Image and Mermaid Diagram side-by-side*
+
+![Interactive Graph](screenshot-2.png)
+*Interactive React Flow Graph*
 
 ## 🚀 Features
 
