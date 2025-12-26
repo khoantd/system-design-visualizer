@@ -25,6 +25,9 @@ function App() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isConverting, setIsConverting] = useState(false);
   const [selectedNode, setSelectedNode] = useState(null);
+  const [selectedEdge, setSelectedEdge] = useState(null);
+  const [nodes, setNodes] = useState([]);
+  const [edges, setEdges] = useState([]);
 
   const interactiveSectionRef = useRef(null);
 
@@ -56,6 +59,8 @@ function App() {
       const data = await convertMermaidToFlow(mermaidCode);
       console.log("App: convertMermaidToFlow returned:", data);
       setGraphData(data);
+      setNodes(data.nodes || []);
+      setEdges(data.edges || []);
 
       // Scroll to interactive section after a short delay to allow render
       setTimeout(() => {
@@ -73,6 +78,52 @@ function App() {
     setMermaidCode(null);
     setUploadedImageUrl(null);
     setSelectedNode(null);
+    setSelectedEdge(null);
+    setNodes([]);
+    setEdges([]);
+  };
+
+  const handleNodeClick = (node) => {
+    setSelectedNode(node);
+    setSelectedEdge(null);
+  };
+
+  const handleEdgeClick = (event, edge) => {
+    setSelectedEdge(edge);
+    setSelectedNode(null);
+  };
+
+  const handleSave = (item) => {
+    if (item.id && nodes.find((n) => n.id === item.id)) {
+      // It's a node
+      setNodes((prevNodes) =>
+        prevNodes.map((n) => (n.id === item.id ? item : n))
+      );
+      setSelectedNode(item);
+    } else if (item.id && edges.find((e) => e.id === item.id)) {
+      // It's an edge
+      setEdges((prevEdges) =>
+        prevEdges.map((e) => (e.id === item.id ? item : e))
+      );
+      setSelectedEdge(item);
+    }
+  };
+
+  const handleDelete = (item) => {
+    if (item.id && nodes.find((n) => n.id === item.id)) {
+      // It's a node - delete node and connected edges
+      setNodes((prevNodes) => prevNodes.filter((n) => n.id !== item.id));
+      setEdges((prevEdges) =>
+        prevEdges.filter(
+          (e) => e.source !== item.id && e.target !== item.id
+        )
+      );
+      setSelectedNode(null);
+    } else if (item.id && edges.find((e) => e.id === item.id)) {
+      // It's an edge
+      setEdges((prevEdges) => prevEdges.filter((e) => e.id !== item.id));
+      setSelectedEdge(null);
+    }
   };
 
   // Clean up object URL when component unmounts or image changes
@@ -350,18 +401,29 @@ function App() {
                 className="flex-1 relative"
                 style={{ backgroundColor: "var(--bg-primary)" }}
               >
-                {graphData ? (
+                {graphData || nodes.length > 0 ? (
                   <>
                     <ReactFlowProvider>
                       <SystemDiagram
-                        initialNodes={graphData.nodes}
-                        initialEdges={graphData.edges}
-                        onNodeClick={setSelectedNode}
+                        nodes={nodes}
+                        edges={edges}
+                        onNodesChange={setNodes}
+                        onEdgesChange={setEdges}
+                        onNodeClick={handleNodeClick}
+                        onEdgeClick={handleEdgeClick}
+                        selectedNode={selectedNode}
+                        selectedEdge={selectedEdge}
                       />
                     </ReactFlowProvider>
                     <InfoPanel
                       node={selectedNode}
-                      onClose={() => setSelectedNode(null)}
+                      edge={selectedEdge}
+                      onClose={() => {
+                        setSelectedNode(null);
+                        setSelectedEdge(null);
+                      }}
+                      onSave={handleSave}
+                      onDelete={handleDelete}
                     />
                   </>
                 ) : (

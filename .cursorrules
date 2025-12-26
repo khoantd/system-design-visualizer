@@ -1,0 +1,192 @@
+# System Design Visualizer - Cursor Rules
+
+## Project Overview
+This is an interactive system design visualizer that transforms static system design diagrams into explorable, interactive visualizations using AI. The application uses OpenAI GPT-4o to analyze images and generate Mermaid diagrams, which are then converted to interactive React Flow graphs.
+
+## Tech Stack
+- **Frontend Framework**: React 19.2.0 with Vite 7.2.4
+- **Styling**: Tailwind CSS 4.1.17 with CSS custom properties for theming
+- **Visualization**: React Flow 11.11.4 (interactive graphs), Mermaid.js 11.12.1 (diagram rendering)
+- **AI Integration**: OpenAI GPT-4o (Vision & Code Generation)
+- **Icons**: Lucide React
+- **Utilities**: clsx, tailwind-merge
+- **Linting**: ESLint with React hooks and refresh plugins
+
+## Project Structure
+```
+src/
+├── components/        # React components
+│   ├── CustomNodes.jsx    # React Flow node components (DatabaseNode, ServerNode, etc.)
+│   ├── InfoPanel.jsx      # Side panel showing node details
+│   ├── MermaidDisplay.jsx # Mermaid diagram renderer with zoom/copy controls
+│   ├── SystemDiagram.jsx  # Main React Flow diagram component
+│   ├── ThemeToggle.jsx    # Theme switcher component
+│   └── UploadZone.jsx     # File upload component
+├── config/
+│   └── nodeTypes.js       # Node type registry for React Flow
+├── contexts/
+│   ├── ThemeContext.jsx   # Theme provider and context implementation
+│   └── ThemeContextDef.js # Theme context type definition
+├── hooks/
+│   └── useTheme.js        # Custom hook for theme access
+├── services/
+│   └── analysisService.js # OpenAI API integration and mock data fallback
+└── themes/
+    └── index.js           # Theme definitions (dark/light) with CSS custom properties
+```
+
+## Code Style & Conventions
+
+### React Components
+- Use functional components with hooks
+- Use `memo()` for custom node components to optimize React Flow rendering
+- Prefer named exports for reusable components
+- Use `useState`, `useEffect`, `useCallback`, and `useMemo` appropriately
+- Keep components focused and single-purpose
+
+### Styling Approach
+- **Primary Method**: CSS custom properties (CSS variables) defined in `themes/index.js`
+- **Secondary Method**: Tailwind CSS utility classes
+- **Theme System**: All colors, shadows, and theme-specific values use CSS variables
+- **Variable Naming**: Follow the pattern `--category-specific` (e.g., `--bg-primary`, `--text-secondary`, `--accent-blue`)
+- **Inline Styles**: Use for CSS variable references: `style={{ backgroundColor: "var(--bg-primary)" }}`
+- **Tailwind Classes**: Use for layout, spacing, and non-theme utilities
+
+### File Naming
+- Components: PascalCase (e.g., `SystemDiagram.jsx`)
+- Services/utilities: camelCase (e.g., `analysisService.js`)
+- Config files: camelCase (e.g., `nodeTypes.js`)
+- Use `.jsx` extension for React components
+
+### State Management
+- Use React `useState` for local component state
+- Use Context API (`ThemeContext`) for global theme state
+- No external state management library (Redux, Zustand, etc.)
+
+### API Integration
+- All API calls are in `services/analysisService.js`
+- Support both OpenAI API and mock data fallback
+- Check for `VITE_OPENAI_API_KEY` environment variable
+- Handle errors gracefully with user-friendly messages
+- Use async/await for API calls
+
+## Architecture Patterns
+
+### Theme System
+- Themes are defined in `themes/index.js` as objects with CSS custom properties
+- `ThemeProvider` applies theme variables to document root
+- Theme preference is stored in localStorage with key `sdv-theme`
+- System preference detection for initial theme
+- All components access theme via `useTheme()` hook or CSS variables
+
+### Node Types
+- Custom React Flow nodes are defined in `components/CustomNodes.jsx`
+- All nodes extend a `BaseNode` component for consistency
+- Node types are registered in `config/nodeTypes.js`
+- Each node type has a specific icon and color scheme:
+  - `databaseNode`: Emerald (Database icon)
+  - `serverNode`: Blue (Server icon)
+  - `clientNode`: Purple (Smartphone icon)
+  - `loadBalancerNode`: Orange (Globe icon)
+  - `cacheNode`: Yellow (Layers icon)
+
+### Component Communication
+- Props for parent-to-child communication
+- Callback functions for child-to-parent communication (e.g., `onNodeClick`, `onUpload`)
+- Context API for theme (global state)
+
+## Important Patterns
+
+### React Flow Integration
+- Always wrap `SystemDiagram` with `ReactFlowProvider`
+- Use `useNodesState` and `useEdgesState` hooks for node/edge management
+- Memoize `nodeTypes` object to prevent unnecessary re-renders
+- Use `fitView` prop for automatic viewport fitting
+
+### Mermaid Integration
+- Initialize Mermaid with theme-aware configuration
+- Re-initialize Mermaid when theme changes
+- Use `mermaid.render()` for dynamic diagram generation
+- Handle SVG rendering in useEffect with proper cleanup
+
+### Error Handling
+- Wrap API calls in try-catch blocks
+- Provide fallback to mock data when API fails
+- Show user-friendly error messages (alerts for now)
+- Log errors to console for debugging
+
+### Performance Considerations
+- Use `memo()` for custom node components
+- Memoize expensive computations with `useMemo`
+- Use `useCallback` for event handlers passed to children
+- Clean up object URLs created with `URL.createObjectURL()`
+
+## Environment Variables
+- `VITE_OPENAI_API_KEY`: OpenAI API key for AI features (optional - falls back to mock data)
+
+## Development Guidelines
+
+### Adding New Features
+1. **New Components**: Create in `src/components/` with PascalCase naming
+2. **New Services**: Add to `src/services/` for API or utility functions
+3. **New Node Types**: 
+   - Add component in `CustomNodes.jsx`
+   - Register in `config/nodeTypes.js`
+   - Update OpenAI prompt in `analysisService.js` if needed
+4. **Styling**: Always use CSS variables for theme-aware styling
+
+### Code Quality
+- Follow ESLint rules (configured in `eslint.config.js`)
+- Use React hooks rules (hooks at top level, proper dependencies)
+- Avoid unused variables (except those starting with uppercase for constants)
+- Use meaningful variable and function names
+
+### Testing Considerations
+- Mock mode is available when no API key is provided
+- Components should handle missing/null data gracefully
+- Test with both dark and light themes
+
+## Common Tasks
+
+### Adding a New Theme
+1. Add theme object to `themes/index.js`
+2. Ensure all required CSS variables are defined
+3. Update `ThemeProvider` if needed
+4. Test all components in new theme
+
+### Adding a New Node Type
+1. Create node component in `CustomNodes.jsx` using `BaseNode`
+2. Export the component
+3. Register in `config/nodeTypes.js`
+4. Update OpenAI prompt in `convertToFlowWithOpenAI()` to include new type
+5. Test with mock data first
+
+### Modifying API Prompts
+- Edit prompts in `services/analysisService.js`
+- `generateMermaidWithOpenAI`: System prompt for Mermaid generation
+- `convertToFlowWithOpenAI`: System prompt for React Flow conversion
+- Always specify JSON response format for Flow conversion
+
+## Best Practices
+- **Do not mess up with the working pieces** - Enhance things carefully, fix things carefully
+- Preserve existing functionality when adding features
+- Maintain theme consistency across all components
+- Use CSS variables for all theme-dependent values
+- Keep components small and focused
+- Document complex logic with comments
+- Handle edge cases (missing data, API failures, etc.)
+- Clean up resources (object URLs, event listeners, etc.)
+
+## Dependencies to Be Aware Of
+- `reactflow`: Requires `ReactFlowProvider` wrapper
+- `mermaid`: Must be initialized before use, theme-aware
+- `lucide-react`: Icon library used throughout
+- `clsx`: For conditional class names
+- `tailwind-merge`: For merging Tailwind classes (if needed)
+
+## Notes
+- The app works in "Mock Mode" when no OpenAI API key is provided
+- All theme colors are defined as CSS custom properties for easy theming
+- React Flow nodes are memoized for performance
+- The application uses a three-panel layout: Original Image, Mermaid Diagram, Interactive Graph
+
