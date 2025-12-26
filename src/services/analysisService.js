@@ -151,10 +151,35 @@ const convertToFlowWithOpenAI = async (mermaidCode, apiKey) => {
             throw new Error(data.error.message);
         }
 
-        const result = JSON.parse(data.choices[0].message.content);
+        if (!data.choices || !data.choices[0] || !data.choices[0].message || !data.choices[0].message.content) {
+            throw new Error("Invalid response format from OpenAI API");
+        }
+
+        let result;
+        try {
+            result = JSON.parse(data.choices[0].message.content);
+        } catch (parseError) {
+            console.error("Failed to parse JSON response:", parseError);
+            console.error("Response content:", data.choices[0].message.content);
+            throw new Error("Failed to parse JSON response from OpenAI");
+        }
         
+        // Validate result structure
+        if (!result || typeof result !== 'object') {
+            console.error("Invalid result structure:", result);
+            throw new Error("Invalid result structure from OpenAI");
+        }
+
+        // Ensure nodes and edges arrays exist
+        if (!result.nodes) {
+            result.nodes = [];
+        }
+        if (!result.edges) {
+            result.edges = [];
+        }
+
         // Validate and ensure all nodes have position property
-        if (result.nodes && Array.isArray(result.nodes)) {
+        if (Array.isArray(result.nodes)) {
             result.nodes = result.nodes.map((node, index) => {
                 if (!node.position || typeof node.position.x !== 'number' || typeof node.position.y !== 'number') {
                     // Default position if missing or invalid
@@ -165,8 +190,18 @@ const convertToFlowWithOpenAI = async (mermaidCode, apiKey) => {
                 }
                 return node;
             });
+        } else {
+            console.warn("result.nodes is not an array, converting to empty array");
+            result.nodes = [];
+        }
+
+        // Ensure edges is an array
+        if (!Array.isArray(result.edges)) {
+            console.warn("result.edges is not an array, converting to empty array");
+            result.edges = [];
         }
         
+        console.log("analysisService: Converted result - nodes:", result.nodes.length, "edges:", result.edges.length);
         return result;
 
     } catch (error) {

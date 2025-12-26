@@ -6,8 +6,8 @@ import {
   Image as ImageIcon,
   Layout,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
-import { ReactFlowProvider } from "reactflow";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ReactFlowProvider, applyNodeChanges, applyEdgeChanges } from "reactflow";
 import InfoPanel from "./components/InfoPanel";
 import MermaidDisplay from "./components/MermaidDisplay";
 import SystemDiagram from "./components/SystemDiagram";
@@ -58,18 +58,44 @@ function App() {
       console.log("App: calling convertMermaidToFlow...");
       const data = await convertMermaidToFlow(mermaidCode);
       console.log("App: convertMermaidToFlow returned:", data);
+      console.log("App: nodes count:", data?.nodes?.length || 0);
+      console.log("App: edges count:", data?.edges?.length || 0);
+      
+      if (!data || (!data.nodes && !data.edges)) {
+        console.error("App: Invalid data structure returned:", data);
+        alert("Failed to generate interactive visualization. Invalid data structure.");
+        return;
+      }
+      
       setGraphData(data);
-      // Ensure all nodes have a position property
+      // Ensure all nodes have a position property and an ID
       const validatedNodes = (data.nodes || []).map((node, index) => {
-        if (!node.position || typeof node.position.x !== 'number' || typeof node.position.y !== 'number') {
-          // Default position if missing or invalid
-          return {
-            ...node,
-            position: { x: 250 + (index % 3) * 200, y: 100 + Math.floor(index / 3) * 150 }
-          };
+        const validatedNode = { ...node };
+        
+        // Ensure node has an ID (required by React Flow)
+        if (!validatedNode.id) {
+          validatedNode.id = `node-${index}-${Date.now()}`;
         }
-        return node;
+        
+        // Ensure node has a valid position
+        if (!validatedNode.position || typeof validatedNode.position.x !== 'number' || typeof validatedNode.position.y !== 'number') {
+          validatedNode.position = { x: 250 + (index % 3) * 200, y: 100 + Math.floor(index / 3) * 150 };
+        }
+        
+        // Ensure node has a type (default to serverNode if missing)
+        if (!validatedNode.type) {
+          validatedNode.type = 'serverNode';
+        }
+        
+        // Ensure node has data object
+        if (!validatedNode.data) {
+          validatedNode.data = { label: `Node ${index + 1}`, description: '', tech: '' };
+        }
+        
+        return validatedNode;
       });
+      console.log("App: validatedNodes count:", validatedNodes.length);
+      console.log("App: validatedNodes:", validatedNodes);
       setNodes(validatedNodes);
       setEdges(data.edges || []);
 
@@ -158,6 +184,21 @@ function App() {
       setSelectedEdge(null);
     }
   };
+
+  // React Flow change handlers - must use applyNodeChanges and applyEdgeChanges
+  const onNodesChange = useCallback(
+    (changes) => {
+      setNodes((nds) => applyNodeChanges(changes, nds));
+    },
+    []
+  );
+
+  const onEdgesChange = useCallback(
+    (changes) => {
+      setEdges((eds) => applyEdgeChanges(changes, eds));
+    },
+    []
+  );
 
   // Clean up object URL when component unmounts or image changes
   useEffect(() => {
@@ -440,8 +481,8 @@ function App() {
                       <SystemDiagram
                         nodes={nodes}
                         edges={edges}
-                        onNodesChange={setNodes}
-                        onEdgesChange={setEdges}
+                        onNodesChange={onNodesChange}
+                        onEdgesChange={onEdgesChange}
                         onNodeClick={handleNodeClick}
                         onEdgeClick={handleEdgeClick}
                         selectedNode={selectedNode}
