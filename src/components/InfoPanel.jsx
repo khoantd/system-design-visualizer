@@ -51,6 +51,7 @@ const InfoPanel = ({
       if (isNode) {
         onSave({
           ...node,
+          position: node.position || { x: 250, y: 250 }, // Ensure position is preserved
           data: {
             ...node.data,
             label: formData.label,

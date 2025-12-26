@@ -152,6 +152,21 @@ const convertToFlowWithOpenAI = async (mermaidCode, apiKey) => {
         }
 
         const result = JSON.parse(data.choices[0].message.content);
+        
+        // Validate and ensure all nodes have position property
+        if (result.nodes && Array.isArray(result.nodes)) {
+            result.nodes = result.nodes.map((node, index) => {
+                if (!node.position || typeof node.position.x !== 'number' || typeof node.position.y !== 'number') {
+                    // Default position if missing or invalid
+                    return {
+                        ...node,
+                        position: { x: 250 + (index % 3) * 200, y: 100 + Math.floor(index / 3) * 150 }
+                    };
+                }
+                return node;
+            });
+        }
+        
         return result;
 
     } catch (error) {

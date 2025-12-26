@@ -59,7 +59,18 @@ function App() {
       const data = await convertMermaidToFlow(mermaidCode);
       console.log("App: convertMermaidToFlow returned:", data);
       setGraphData(data);
-      setNodes(data.nodes || []);
+      // Ensure all nodes have a position property
+      const validatedNodes = (data.nodes || []).map((node, index) => {
+        if (!node.position || typeof node.position.x !== 'number' || typeof node.position.y !== 'number') {
+          // Default position if missing or invalid
+          return {
+            ...node,
+            position: { x: 250 + (index % 3) * 200, y: 100 + Math.floor(index / 3) * 150 }
+          };
+        }
+        return node;
+      });
+      setNodes(validatedNodes);
       setEdges(data.edges || []);
 
       // Scroll to interactive section after a short delay to allow render
@@ -95,11 +106,33 @@ function App() {
 
   const handleSave = (item) => {
     if (item.id && nodes.find((n) => n.id === item.id)) {
-      // It's a node
+      // It's a node - ensure position is preserved
       setNodes((prevNodes) =>
-        prevNodes.map((n) => (n.id === item.id ? item : n))
+        prevNodes.map((n) => {
+          if (n.id === item.id) {
+            // Preserve position from existing node if not in item
+            const position = item.position || n.position || { x: 250, y: 250 };
+            return {
+              ...item,
+              position: {
+                x: typeof position.x === 'number' ? position.x : 250,
+                y: typeof position.y === 'number' ? position.y : 250
+              }
+            };
+          }
+          return n;
+        })
       );
-      setSelectedNode(item);
+      // Update selected node with position preserved
+      const existingNode = nodes.find((n) => n.id === item.id);
+      const position = item.position || existingNode?.position || { x: 250, y: 250 };
+      setSelectedNode({
+        ...item,
+        position: {
+          x: typeof position.x === 'number' ? position.x : 250,
+          y: typeof position.y === 'number' ? position.y : 250
+        }
+      });
     } else if (item.id && edges.find((e) => e.id === item.id)) {
       // It's an edge
       setEdges((prevEdges) =>

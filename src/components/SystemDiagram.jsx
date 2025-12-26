@@ -26,6 +26,20 @@ const SystemDiagram = ({
 
   const nodeTypesMemo = React.useMemo(() => nodeTypes, []);
 
+  // Validate nodes to ensure all have position property
+  const validatedNodes = React.useMemo(() => {
+    return nodes.map((node, index) => {
+      if (!node.position || typeof node.position.x !== 'number' || typeof node.position.y !== 'number') {
+        // Default position if missing or invalid
+        return {
+          ...node,
+          position: { x: 250 + (index % 3) * 200, y: 100 + Math.floor(index / 3) * 150 }
+        };
+      }
+      return node;
+    });
+  }, [nodes]);
+
   const onConnect = useCallback(
     (params) => {
       const newEdge = {
@@ -125,7 +139,7 @@ const SystemDiagram = ({
     >
       <NodeToolbar onAddNode={handleAddNode} />
       <ReactFlow
-        nodes={nodes}
+        nodes={validatedNodes}
         edges={edges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
