@@ -168,6 +168,10 @@ function App() {
   };
 
   const handleSaveDiagram = () => {
+    console.log('handleSaveDiagram called');
+    console.log('nodes:', nodes);
+    console.log('nodes.length:', nodes.length);
+    
     if (nodes.length === 0) {
       alert('No diagram to save. Please create a diagram first.');
       return;
