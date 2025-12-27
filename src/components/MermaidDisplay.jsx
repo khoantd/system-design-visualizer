@@ -6,6 +6,7 @@ import { useTheme } from "../hooks/useTheme";
 /**
  * Sanitizes Mermaid code to escape special characters in node labels.
  * Mermaid uses (), [], {}, etc. for node shapes, so these must be escaped in labels.
+ * Parentheses in labels break parsing, so we replace them with unicode alternatives.
  */
 const sanitizeMermaidCode = (code) => {
   if (!code) return code;
@@ -17,20 +18,27 @@ const sanitizeMermaidCode = (code) => {
         line.trim().startsWith('subgraph') || 
         line.trim() === 'end' ||
         line.trim().startsWith('graph') ||
-        line.trim().startsWith('flowchart')) {
+        line.trim().startsWith('flowchart') ||
+        line.trim().startsWith('style') ||
+        line.trim().startsWith('classDef') ||
+        line.trim().startsWith('class ') ||
+        line.trim().startsWith('linkStyle')) {
       return line;
     }
     
-    // Match node definitions with various bracket types
-    // Handle: A[label], A(label), A{label}, A[(label)], A((label)), A>label], A{{label}}
+    // Replace parentheses in labels with unicode alternatives
+    // This is more reliable than quoting for all Mermaid shape types
+    // Match patterns like: NodeId[label], NodeId(label), NodeId[(label)], NodeId((label)), etc.
     return line.replace(
-      /(\w+)((?:\[\[|\[\(|\(\(|\{\{|\[|\(|\{|>))(.+?)((?:\]\]|\)\]|\)\)|\}\}|\]|\)|\}))(?=\s|$|-->|---|-\.-|==|-.->)/g,
+      /(\w+)((?:\[\(|\(\(|\[\[|\{\{|\[|\(|\{|>))([^\]\)\}]+)((?:\)\]|\)\)|\]\]|\}\}|\]|\)|\}|>))/g,
       (match, nodeId, openBracket, label, closeBracket) => {
-        // Check if label contains unescaped parentheses that would break parsing
-        if ((label.includes('(') || label.includes(')')) && !label.startsWith('"')) {
-          // Escape existing quotes and wrap in quotes
-          const escapedLabel = label.replace(/"/g, '#quot;');
-          return `${nodeId}${openBracket}"${escapedLabel}"${closeBracket}`;
+        // Check if label contains parentheses that would break parsing
+        if (label.includes('(') || label.includes(')')) {
+          // Replace parentheses with fullwidth unicode equivalents
+          const escapedLabel = label
+            .replace(/\(/g, '❨')  // U+2768 Medium Left Parenthesis Ornament
+            .replace(/\)/g, '❩'); // U+2769 Medium Right Parenthesis Ornament
+          return `${nodeId}${openBracket}${escapedLabel}${closeBracket}`;
         }
         return match;
       }
