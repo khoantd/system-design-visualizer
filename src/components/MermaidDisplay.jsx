@@ -4,10 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import { useTheme } from "../hooks/useTheme";
 
 /**
- * Escapes parentheses in text with unicode alternatives.
+ * Removes parentheses from text to avoid Mermaid parsing issues.
  */
 const escapeParens = (text) => {
-  return text.replace(/\(/g, '❨').replace(/\)/g, '❩');
+  return text.replace(/[()]/g, '');
 };
 
 /**
