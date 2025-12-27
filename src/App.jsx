@@ -178,7 +178,11 @@ function App() {
     }
 
     const diagramName = prompt('Enter a name for this diagram:', `Diagram ${new Date().toLocaleString()}`);
-    if (!diagramName) return;
+    console.log('diagramName from prompt:', diagramName);
+    if (!diagramName) {
+      console.log('No diagram name provided, returning');
+      return;
+    }
 
     const diagramData = {
       id: Date.now().toString(),
@@ -190,8 +194,14 @@ function App() {
       layoutDirection: layoutDirection,
       connectionLineType: connectionLineType
     };
+    console.log('diagramData to save:', diagramData);
 
-    setSavedDiagrams(prev => [...prev, diagramData]);
+    setSavedDiagrams(prev => {
+      console.log('Previous savedDiagrams:', prev);
+      const newDiagrams = [...prev, diagramData];
+      console.log('New savedDiagrams:', newDiagrams);
+      return newDiagrams;
+    });
     alert('Diagram saved successfully!');
   };
 
