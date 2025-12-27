@@ -40,6 +40,8 @@ function App() {
   const [connectionLineType, setConnectionLineType] = useState('straight');
   const [savedDiagrams, setSavedDiagrams] = useState([]);
   const [showSavedDiagrams, setShowSavedDiagrams] = useState(false);
+  const [showSaveAsModal, setShowSaveAsModal] = useState(false);
+  const [saveAsName, setSaveAsName] = useState('');
 
   const interactiveSectionRef = useRef(null);
 
@@ -184,27 +186,23 @@ function App() {
   };
 
   const handleSaveAsDiagram = () => {
-    console.log('handleSaveAsDiagram called');
-    console.log('nodes.length:', nodes.length);
-    
     if (nodes.length === 0) {
-      console.log('No nodes to save, showing alert');
       alert('No diagram to save. Please create a diagram first.');
       return;
     }
+    setSaveAsName(`Diagram Copy ${new Date().toLocaleString()}`);
+    setShowSaveAsModal(true);
+  };
 
-    console.log('Prompting for diagram name...');
-    const diagramName = prompt('Save as new diagram with name:', `Diagram Copy ${new Date().toLocaleString()}`);
-    console.log('Prompt returned:', diagramName);
-    if (!diagramName) {
-      console.log('User cancelled or empty name');
+  const handleConfirmSaveAs = () => {
+    if (!saveAsName.trim()) {
+      alert('Please enter a name for the diagram.');
       return;
     }
-    console.log('Saving diagram with name:', diagramName);
 
     const diagramData = {
       id: Date.now().toString(),
-      name: diagramName,
+      name: saveAsName.trim(),
       nodes: JSON.parse(JSON.stringify(nodes)),
       edges: JSON.parse(JSON.stringify(edges)),
       mermaidCode: mermaidCode,
@@ -214,7 +212,9 @@ function App() {
     };
 
     setSavedDiagrams(prev => [...prev, diagramData]);
-    alert(`Diagram saved as "${diagramName}"!`);
+    setShowSaveAsModal(false);
+    setSaveAsName('');
+    alert(`Diagram saved as "${saveAsName.trim()}"!`);
   };
 
   const handleLoadDiagram = (diagram) => {
@@ -1021,6 +1021,66 @@ function App() {
                   ))}
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Save As Modal */}
+        {showSaveAsModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div
+              className="rounded-xl p-6 w-96 shadow-2xl"
+              style={{
+                backgroundColor: "var(--bg-elevated)",
+                border: "1px solid var(--border-primary)",
+              }}
+            >
+              <h3
+                className="text-lg font-semibold mb-4"
+                style={{ color: "var(--text-primary)" }}
+              >
+                Save As
+              </h3>
+              <input
+                type="text"
+                value={saveAsName}
+                onChange={(e) => setSaveAsName(e.target.value)}
+                placeholder="Enter diagram name"
+                className="w-full px-4 py-2 rounded-lg mb-4 outline-none"
+                style={{
+                  backgroundColor: "var(--bg-secondary)",
+                  border: "1px solid var(--border-primary)",
+                  color: "var(--text-primary)",
+                }}
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleConfirmSaveAs();
+                  if (e.key === 'Escape') setShowSaveAsModal(false);
+                }}
+              />
+              <div className="flex gap-3 justify-end">
+                <button
+                  onClick={() => setShowSaveAsModal(false)}
+                  className="px-4 py-2 rounded-lg text-sm font-medium"
+                  style={{
+                    backgroundColor: "var(--bg-secondary)",
+                    color: "var(--text-secondary)",
+                    border: "1px solid var(--border-primary)",
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmSaveAs}
+                  className="px-4 py-2 rounded-lg text-sm font-medium"
+                  style={{
+                    backgroundColor: "var(--accent-blue)",
+                    color: "white",
+                  }}
+                >
+                  Save
+                </button>
+              </div>
             </div>
           </div>
         )}
