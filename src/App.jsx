@@ -195,7 +195,12 @@ function App() {
 
     console.log('Prompting for diagram name...');
     const diagramName = prompt('Save as new diagram with name:', `Diagram Copy ${new Date().toLocaleString()}`);
-    if (!diagramName) return;
+    console.log('Prompt returned:', diagramName);
+    if (!diagramName) {
+      console.log('User cancelled or empty name');
+      return;
+    }
+    console.log('Saving diagram with name:', diagramName);
 
     const diagramData = {
       id: Date.now().toString(),
