@@ -32,6 +32,7 @@ const InfoPanel = ({
         label: edge.label || edge.data?.label || "",
         type: edge.data?.type || "request",
         color: edge.style?.stroke || edge.data?.color || "#64748b",
+        labelColor: edge.labelStyle?.fill || edge.data?.labelColor || "#374151",
         strokeWidth: edge.style?.strokeWidth || 2,
         strokeDasharray: dashStyle,
       });
@@ -83,7 +84,7 @@ const InfoPanel = ({
             strokeDasharray: strokeDasharray,
           },
           labelStyle: {
-            fill: "var(--text-primary)",
+            fill: formData.labelColor,
             fontSize: 12,
           },
         });
@@ -113,6 +114,7 @@ const InfoPanel = ({
         label: edge.label || edge.data?.label || "",
         type: edge.data?.type || "request",
         color: edge.style?.stroke || edge.data?.color || "#64748b",
+        labelColor: edge.labelStyle?.fill || edge.data?.labelColor || "#374151",
         strokeWidth: edge.style?.strokeWidth || 2,
         strokeDasharray: dashStyle,
       });
@@ -429,6 +431,53 @@ const InfoPanel = ({
                     border: "1px solid var(--border-primary)",
                   }}
                 />
+              )}
+            </div>
+
+            <div className="mb-6">
+              <label
+                className="text-xs uppercase tracking-wider font-semibold mb-2 block"
+                style={{ color: "var(--text-muted)" }}
+              >
+                Label Color
+              </label>
+              {isEditing ? (
+                <div className="flex items-center gap-3">
+                  <input
+                    type="color"
+                    value={formData.labelColor}
+                    onChange={(e) =>
+                      setFormData({ ...formData, labelColor: e.target.value })
+                    }
+                    className="w-12 h-10 rounded cursor-pointer"
+                    style={{ border: "1px solid var(--border-primary)" }}
+                  />
+                  <input
+                    type="text"
+                    value={formData.labelColor}
+                    onChange={(e) =>
+                      setFormData({ ...formData, labelColor: e.target.value })
+                    }
+                    className="flex-1 px-3 py-2 rounded-md text-sm"
+                    style={{
+                      backgroundColor: "var(--bg-primary)",
+                      color: "var(--text-primary)",
+                      border: "1px solid var(--border-primary)",
+                    }}
+                    placeholder="#374151"
+                  />
+                </div>
+              ) : (
+                <div
+                  className="w-full h-8 rounded flex items-center justify-center text-sm font-medium"
+                  style={{
+                    backgroundColor: edge.labelStyle?.fill || edge.data?.labelColor || "#374151",
+                    border: "1px solid var(--border-primary)",
+                    color: "white",
+                  }}
+                >
+                  {edge.labelStyle?.fill || edge.data?.labelColor || "#374151"}
+                </div>
               )}
             </div>
 
