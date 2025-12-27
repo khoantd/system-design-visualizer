@@ -179,8 +179,8 @@ function App() {
     const diagramData = {
       id: Date.now().toString(),
       name: diagramName,
-      nodes: nodes,
-      edges: edges,
+      nodes: JSON.parse(JSON.stringify(nodes)),
+      edges: JSON.parse(JSON.stringify(edges)),
       mermaidCode: mermaidCode,
       createdAt: new Date().toISOString(),
       layoutDirection: layoutDirection,
