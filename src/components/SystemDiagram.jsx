@@ -103,6 +103,7 @@ const SystemDiagram = ({
         labelStyle: { fill: "var(--text-primary)", fontSize: 12 },
         type: edgeType,
         animated: true,
+        markerEnd: { type: 'arrowclosed', color: '#64748b' },
       };
       onEdgesChange([{ type: "add", item: newEdge }]);
       // Auto-select the new edge

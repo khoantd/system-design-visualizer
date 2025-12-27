@@ -28,6 +28,15 @@ const InfoPanel = ({
           : strokeDasharray === "2,2"
           ? "dotted"
           : "solid";
+      // Determine arrow style from markerEnd/markerStart
+      let arrowStyle = "end"; // default
+      if (edge.markerEnd && edge.markerStart) {
+        arrowStyle = "both";
+      } else if (edge.markerStart && !edge.markerEnd) {
+        arrowStyle = "start";
+      } else if (!edge.markerEnd && !edge.markerStart) {
+        arrowStyle = "none";
+      }
       setFormData({
         label: edge.label || edge.data?.label || "",
         type: edge.data?.type || "request",
@@ -35,6 +44,7 @@ const InfoPanel = ({
         labelColor: edge.labelStyle?.fill || edge.data?.labelColor || "#374151",
         strokeWidth: edge.style?.strokeWidth || 2,
         strokeDasharray: dashStyle,
+        arrowStyle: arrowStyle,
       });
       setIsEditing(true);
     }
@@ -68,6 +78,17 @@ const InfoPanel = ({
             : formData.strokeDasharray === "dotted"
             ? "2,2"
             : "0";
+        // Build marker configuration based on arrow style
+        const markerConfig = {};
+        const arrowMarker = { type: 'arrowclosed', color: formData.color };
+        
+        if (formData.arrowStyle === "end" || formData.arrowStyle === "both") {
+          markerConfig.markerEnd = arrowMarker;
+        }
+        if (formData.arrowStyle === "start" || formData.arrowStyle === "both") {
+          markerConfig.markerStart = arrowMarker;
+        }
+        
         onSave({
           ...edge,
           label: formData.label,
@@ -87,6 +108,11 @@ const InfoPanel = ({
             fill: formData.labelColor,
             fontSize: 12,
           },
+          ...markerConfig,
+          // Clear markers if not set
+          ...(formData.arrowStyle === "none" && { markerEnd: undefined, markerStart: undefined }),
+          ...(formData.arrowStyle === "end" && { markerStart: undefined }),
+          ...(formData.arrowStyle === "start" && { markerEnd: undefined }),
         });
       }
     }
@@ -110,6 +136,15 @@ const InfoPanel = ({
           : strokeDasharray === "2,2"
           ? "dotted"
           : "solid";
+      // Determine arrow style from markerEnd/markerStart
+      let arrowStyle = "end";
+      if (edge.markerEnd && edge.markerStart) {
+        arrowStyle = "both";
+      } else if (edge.markerStart && !edge.markerEnd) {
+        arrowStyle = "start";
+      } else if (!edge.markerEnd && !edge.markerStart) {
+        arrowStyle = "none";
+      }
       setFormData({
         label: edge.label || edge.data?.label || "",
         type: edge.data?.type || "request",
@@ -117,6 +152,7 @@ const InfoPanel = ({
         labelColor: edge.labelStyle?.fill || edge.data?.labelColor || "#374151",
         strokeWidth: edge.style?.strokeWidth || 2,
         strokeDasharray: dashStyle,
+        arrowStyle: arrowStyle,
       });
     }
     setIsEditing(false);
@@ -549,6 +585,51 @@ const InfoPanel = ({
                     ? "Dotted"
                     : "Solid"}{" "}
                   ({edge.style?.strokeWidth || 2}px)
+                </span>
+              )}
+            </div>
+
+            <div className="mb-6">
+              <label
+                className="text-xs uppercase tracking-wider font-semibold mb-2 block"
+                style={{ color: "var(--text-muted)" }}
+              >
+                Arrow Style
+              </label>
+              {isEditing ? (
+                <select
+                  value={formData.arrowStyle}
+                  onChange={(e) =>
+                    setFormData({ ...formData, arrowStyle: e.target.value })
+                  }
+                  className="w-full px-3 py-2 rounded-md text-sm"
+                  style={{
+                    backgroundColor: "var(--bg-primary)",
+                    color: "var(--text-primary)",
+                    border: "1px solid var(--border-primary)",
+                  }}
+                >
+                  <option value="none">No Arrow</option>
+                  <option value="end">Arrow at End →</option>
+                  <option value="start">Arrow at Start ←</option>
+                  <option value="both">Both Ends ↔</option>
+                </select>
+              ) : (
+                <span
+                  className="inline-block px-3 py-1 rounded text-sm font-medium"
+                  style={{
+                    backgroundColor: "var(--interactive-bg)",
+                    color: "var(--text-secondary)",
+                    border: "1px solid var(--border-primary)",
+                  }}
+                >
+                  {edge.markerEnd && edge.markerStart
+                    ? "Both Ends ↔"
+                    : edge.markerStart
+                    ? "Arrow at Start ←"
+                    : edge.markerEnd
+                    ? "Arrow at End →"
+                    : "No Arrow"}
                 </span>
               )}
             </div>
