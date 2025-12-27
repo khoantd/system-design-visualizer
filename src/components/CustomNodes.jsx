@@ -1,9 +1,11 @@
 import clsx from "clsx";
 import { Database, Globe, Layers, Server, Smartphone, User } from "lucide-react";
-import { memo } from "react";
+import { memo, useState } from "react";
 import { Handle, Position } from "reactflow";
 
 const BaseNode = ({ data, icon: Icon, colorClass, isSelected }) => {
+  const [isHovered, setIsHovered] = useState(false);
+
   return (
     <div
       className={clsx(
@@ -15,12 +17,17 @@ const BaseNode = ({ data, icon: Icon, colorClass, isSelected }) => {
         borderColor: isSelected ? "var(--accent-blue)" : "var(--node-border)",
         boxShadow: isSelected ? "var(--accent-blue-glow)" : "var(--shadow-lg)",
       }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
     >
       <Handle
         type="target"
         position={Position.Top}
-        className="!w-3 !h-3"
-        style={{ backgroundColor: "var(--text-muted)" }}
+        className="!w-3 !h-3 transition-opacity duration-200"
+        style={{
+          backgroundColor: "var(--text-muted)",
+          opacity: isHovered || isSelected ? 1 : 0,
+        }}
       />
 
       <div className="flex items-center gap-3">
@@ -48,8 +55,11 @@ const BaseNode = ({ data, icon: Icon, colorClass, isSelected }) => {
       <Handle
         type="source"
         position={Position.Bottom}
-        className="!w-3 !h-3"
-        style={{ backgroundColor: "var(--text-muted)" }}
+        className="!w-3 !h-3 transition-opacity duration-200"
+        style={{
+          backgroundColor: "var(--text-muted)",
+          opacity: isHovered || isSelected ? 1 : 0,
+        }}
       />
     </div>
   );
