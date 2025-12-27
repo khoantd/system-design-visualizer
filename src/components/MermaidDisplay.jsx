@@ -98,6 +98,42 @@ const sanitizeMermaidCode = (code) => {
       }
     }
     
+    // Check for regular rectangle shape: [ (but not [[ or [()
+    if (code[i] === '[' && code[i + 1] !== '[' && code[i + 1] !== '(') {
+      const match = findClosingBracket(code, i + 1, ']');
+      if (match && match.label.length > 0) {
+        result += '[';
+        result += escapeParens(match.label);
+        result += ']';
+        i = match.endIdx;
+        continue;
+      }
+    }
+    
+    // Check for regular rounded shape: ( (but not (( or ([)
+    if (code[i] === '(' && code[i + 1] !== '(' && code[i + 1] !== '[') {
+      const match = findClosingBracket(code, i + 1, ')');
+      if (match && match.label.length > 0 && !match.label.includes('\n')) {
+        result += '(';
+        result += escapeParens(match.label);
+        result += ')';
+        i = match.endIdx;
+        continue;
+      }
+    }
+    
+    // Check for rhombus/diamond shape: {
+    if (code[i] === '{' && code[i + 1] !== '{') {
+      const match = findClosingBracket(code, i + 1, '}');
+      if (match && match.label.length > 0) {
+        result += '{';
+        result += escapeParens(match.label);
+        result += '}';
+        i = match.endIdx;
+        continue;
+      }
+    }
+    
     // Default: copy character as-is
     result += code[i];
     i++;
