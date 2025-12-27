@@ -4,6 +4,29 @@ import { useEffect, useRef, useState } from "react";
 import { useTheme } from "../hooks/useTheme";
 
 /**
+ * Escapes parentheses in text with unicode alternatives.
+ */
+const escapeParens = (text) => {
+  return text.replace(/\(/g, '❨').replace(/\)/g, '❩');
+};
+
+/**
+ * Finds matching closing bracket sequence and returns the label content.
+ * @param {string} str - The string to search in
+ * @param {number} startIdx - Index right after the opening bracket
+ * @param {string} closeSeq - The closing sequence to find (e.g., ')]', '))', etc.)
+ * @returns {{label: string, endIdx: number} | null}
+ */
+const findClosingBracket = (str, startIdx, closeSeq) => {
+  const endIdx = str.indexOf(closeSeq, startIdx);
+  if (endIdx === -1) return null;
+  return {
+    label: str.substring(startIdx, endIdx),
+    endIdx: endIdx + closeSeq.length
+  };
+};
+
+/**
  * Sanitizes Mermaid code to escape special characters in node labels.
  * Mermaid uses (), [], {}, etc. for node shapes, so these must be escaped in labels.
  * Parentheses in labels break parsing, so we replace them with unicode alternatives.
@@ -11,39 +34,76 @@ import { useTheme } from "../hooks/useTheme";
 const sanitizeMermaidCode = (code) => {
   if (!code) return code;
   
-  // Process line by line to handle complex cases
-  return code.split('\n').map(line => {
-    // Skip directive lines, subgraph declarations, and end statements
-    if (line.trim().startsWith('%%') || 
-        line.trim().startsWith('subgraph') || 
-        line.trim() === 'end' ||
-        line.trim().startsWith('graph') ||
-        line.trim().startsWith('flowchart') ||
-        line.trim().startsWith('style') ||
-        line.trim().startsWith('classDef') ||
-        line.trim().startsWith('class ') ||
-        line.trim().startsWith('linkStyle')) {
-      return line;
+  let result = '';
+  let i = 0;
+  
+  while (i < code.length) {
+    // Check for cylinder shape: [(
+    if (code.substring(i, i + 2) === '[(') {
+      const match = findClosingBracket(code, i + 2, ')]');
+      if (match) {
+        result += '[(';
+        result += escapeParens(match.label);
+        result += ')]';
+        i = match.endIdx;
+        continue;
+      }
     }
     
-    // Replace parentheses in labels with unicode alternatives
-    // This is more reliable than quoting for all Mermaid shape types
-    // Match patterns like: NodeId[label], NodeId(label), NodeId[(label)], NodeId((label)), etc.
-    return line.replace(
-      /(\w+)((?:\[\(|\(\(|\[\[|\{\{|\[|\(|\{|>))([^\]\)\}]+)((?:\)\]|\)\)|\]\]|\}\}|\]|\)|\}|>))/g,
-      (match, nodeId, openBracket, label, closeBracket) => {
-        // Check if label contains parentheses that would break parsing
-        if (label.includes('(') || label.includes(')')) {
-          // Replace parentheses with fullwidth unicode equivalents
-          const escapedLabel = label
-            .replace(/\(/g, '❨')  // U+2768 Medium Left Parenthesis Ornament
-            .replace(/\)/g, '❩'); // U+2769 Medium Right Parenthesis Ornament
-          return `${nodeId}${openBracket}${escapedLabel}${closeBracket}`;
-        }
-        return match;
+    // Check for double circle shape: ((
+    if (code.substring(i, i + 2) === '((' && code[i - 1] !== '(') {
+      const match = findClosingBracket(code, i + 2, '))');
+      if (match) {
+        result += '((';
+        result += escapeParens(match.label);
+        result += '))';
+        i = match.endIdx;
+        continue;
       }
-    );
-  }).join('\n');
+    }
+    
+    // Check for stadium shape: ([
+    if (code.substring(i, i + 2) === '([') {
+      const match = findClosingBracket(code, i + 2, '])');
+      if (match) {
+        result += '([';
+        result += escapeParens(match.label);
+        result += '])';
+        i = match.endIdx;
+        continue;
+      }
+    }
+    
+    // Check for subroutine shape: [[
+    if (code.substring(i, i + 2) === '[[') {
+      const match = findClosingBracket(code, i + 2, ']]');
+      if (match) {
+        result += '[[';
+        result += escapeParens(match.label);
+        result += ']]';
+        i = match.endIdx;
+        continue;
+      }
+    }
+    
+    // Check for hexagon shape: {{
+    if (code.substring(i, i + 2) === '{{') {
+      const match = findClosingBracket(code, i + 2, '}}');
+      if (match) {
+        result += '{{';
+        result += escapeParens(match.label);
+        result += '}}';
+        i = match.endIdx;
+        continue;
+      }
+    }
+    
+    // Default: copy character as-is
+    result += code[i];
+    i++;
+  }
+  
+  return result;
 };
 
 const MermaidDisplay = ({ chart }) => {
