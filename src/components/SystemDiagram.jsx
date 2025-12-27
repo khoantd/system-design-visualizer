@@ -102,6 +102,7 @@ const SystemDiagram = ({
         style: { stroke: "#64748b", strokeWidth: 2 },
         labelStyle: { fill: "var(--text-primary)", fontSize: 12 },
         type: edgeType,
+        animated: true,
       };
       onEdgesChange([{ type: "add", item: newEdge }]);
       // Auto-select the new edge
