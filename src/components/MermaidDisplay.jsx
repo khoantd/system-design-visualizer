@@ -3,6 +3,41 @@ import mermaid from "mermaid";
 import { useEffect, useRef, useState } from "react";
 import { useTheme } from "../hooks/useTheme";
 
+/**
+ * Sanitizes Mermaid code to escape special characters in node labels.
+ * Mermaid uses (), [], {}, etc. for node shapes, so these must be escaped in labels.
+ */
+const sanitizeMermaidCode = (code) => {
+  if (!code) return code;
+  
+  // Process line by line to handle complex cases
+  return code.split('\n').map(line => {
+    // Skip directive lines, subgraph declarations, and end statements
+    if (line.trim().startsWith('%%') || 
+        line.trim().startsWith('subgraph') || 
+        line.trim() === 'end' ||
+        line.trim().startsWith('graph') ||
+        line.trim().startsWith('flowchart')) {
+      return line;
+    }
+    
+    // Match node definitions with various bracket types
+    // Handle: A[label], A(label), A{label}, A[(label)], A((label)), A>label], A{{label}}
+    return line.replace(
+      /(\w+)((?:\[\[|\[\(|\(\(|\{\{|\[|\(|\{|>))(.+?)((?:\]\]|\)\]|\)\)|\}\}|\]|\)|\}))(?=\s|$|-->|---|-\.-|==|-.->)/g,
+      (match, nodeId, openBracket, label, closeBracket) => {
+        // Check if label contains unescaped parentheses that would break parsing
+        if ((label.includes('(') || label.includes(')')) && !label.startsWith('"')) {
+          // Escape existing quotes and wrap in quotes
+          const escapedLabel = label.replace(/"/g, '#quot;');
+          return `${nodeId}${openBracket}"${escapedLabel}"${closeBracket}`;
+        }
+        return match;
+      }
+    );
+  }).join('\n');
+};
+
 const MermaidDisplay = ({ chart }) => {
   const containerRef = useRef(null);
   const [scale, setScale] = useState(1);
@@ -24,7 +59,8 @@ const MermaidDisplay = ({ chart }) => {
 
   useEffect(() => {
     if (containerRef.current && chart) {
-      mermaid.render(`mermaid-${Date.now()}`, chart).then(({ svg }) => {
+      const sanitizedChart = sanitizeMermaidCode(chart);
+      mermaid.render(`mermaid-${Date.now()}`, sanitizedChart).then(({ svg }) => {
         if (containerRef.current) {
           containerRef.current.innerHTML = svg;
         }
