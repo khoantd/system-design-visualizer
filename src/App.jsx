@@ -58,10 +58,16 @@ function App() {
   }, []);
 
   // Save diagrams to localStorage whenever they change
+  // Use a ref to track if initial load has completed to avoid overwriting on mount
+  const hasLoadedRef = useRef(false);
+  
   useEffect(() => {
-    if (savedDiagrams.length > 0) {
-      localStorage.setItem('savedDiagrams', JSON.stringify(savedDiagrams));
+    // Skip the first render to avoid overwriting localStorage before loading
+    if (!hasLoadedRef.current) {
+      hasLoadedRef.current = true;
+      return;
     }
+    localStorage.setItem('savedDiagrams', JSON.stringify(savedDiagrams));
   }, [savedDiagrams]);
 
   const handleUpload = async (file) => {

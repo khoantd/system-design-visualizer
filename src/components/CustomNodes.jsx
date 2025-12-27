@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { Database, Globe, Layers, Server, Smartphone } from "lucide-react";
+import { Database, Globe, Layers, Server, Smartphone, User } from "lucide-react";
 import { memo } from "react";
 import { Handle, Position } from "reactflow";
 
@@ -96,6 +96,15 @@ export const CacheNode = memo(({ data, selected }) => (
     data={data}
     icon={Layers}
     colorClass="border-yellow-500/50 text-yellow-400"
+    isSelected={selected}
+  />
+));
+
+export const UserNode = memo(({ data, selected }) => (
+  <BaseNode
+    data={data}
+    icon={User}
+    colorClass="border-cyan-500/50 text-cyan-400"
     isSelected={selected}
   />
 ));

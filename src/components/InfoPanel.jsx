@@ -221,6 +221,7 @@ const InfoPanel = ({
                   <option value="clientNode">Client</option>
                   <option value="loadBalancerNode">Load Balancer</option>
                   <option value="cacheNode">Cache</option>
+                  <option value="userNode">User</option>
                 </select>
               ) : (
                 <span

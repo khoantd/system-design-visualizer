@@ -4,6 +4,7 @@ import {
   DatabaseNode,
   LoadBalancerNode,
   ServerNode,
+  UserNode,
 } from "../components/CustomNodes";
 import SubflowNode from "../components/SubflowNode";
 
@@ -13,5 +14,6 @@ export const nodeTypes = {
   clientNode: ClientNode,
   loadBalancerNode: LoadBalancerNode,
   cacheNode: CacheNode,
+  userNode: UserNode,
   subflowNode: SubflowNode,
 };

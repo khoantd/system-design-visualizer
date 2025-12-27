@@ -6,6 +6,7 @@ import {
   Server,
   Smartphone,
   Box,
+  User,
 } from "lucide-react";
 
 const NodeToolbar = ({ onAddNode }) => {
@@ -45,6 +46,12 @@ const NodeToolbar = ({ onAddNode }) => {
       label: "Cache",
       icon: Layers,
       color: "yellow",
+    },
+    {
+      type: "userNode",
+      label: "User",
+      icon: User,
+      color: "cyan",
     },
   ];
 
