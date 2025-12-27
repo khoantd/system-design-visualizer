@@ -1,8 +1,10 @@
-import { memo } from "react";
+import { memo, useState } from "react";
 import { Handle, Position, NodeResizer } from "reactflow";
 import { Box } from "lucide-react";
 
 const SubflowNode = memo(({ id, data, selected }) => {
+  const [isHovered, setIsHovered] = useState(false);
+
   return (
     <>
       <NodeResizer
@@ -25,12 +27,17 @@ const SubflowNode = memo(({ id, data, selected }) => {
           minWidth: 200,
           minHeight: 150,
         }}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
       >
         <Handle
           type="target"
           position={Position.Top}
-          className="!w-3 !h-3 pointer-events-auto"
-          style={{ backgroundColor: "var(--text-muted)" }}
+          className="!w-3 !h-3 pointer-events-auto transition-opacity duration-200"
+          style={{
+            backgroundColor: "var(--text-muted)",
+            opacity: isHovered || selected ? 1 : 0,
+          }}
         />
 
         {/* Header - clickable area for dragging */}
@@ -71,8 +78,11 @@ const SubflowNode = memo(({ id, data, selected }) => {
         <Handle
           type="source"
           position={Position.Bottom}
-          className="!w-3 !h-3 pointer-events-auto"
-          style={{ backgroundColor: "var(--text-muted)" }}
+          className="!w-3 !h-3 pointer-events-auto transition-opacity duration-200"
+          style={{
+            backgroundColor: "var(--text-muted)",
+            opacity: isHovered || selected ? 1 : 0,
+          }}
         />
       </div>
     </>
