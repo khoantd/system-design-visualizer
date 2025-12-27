@@ -5,10 +5,17 @@ import {
   Plus,
   Server,
   Smartphone,
+  Box,
 } from "lucide-react";
 
 const NodeToolbar = ({ onAddNode }) => {
   const nodeTypeConfigs = [
+    {
+      type: "subflowNode",
+      label: "Subflow",
+      icon: Box,
+      color: "slate",
+    },
     {
       type: "databaseNode",
       label: "Database",

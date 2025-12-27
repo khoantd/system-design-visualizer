@@ -215,6 +215,7 @@ const InfoPanel = ({
                     border: "1px solid var(--border-primary)",
                   }}
                 >
+                  <option value="subflowNode">Subflow</option>
                   <option value="databaseNode">Database</option>
                   <option value="serverNode">Server</option>
                   <option value="clientNode">Client</option>

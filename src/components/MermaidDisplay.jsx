@@ -25,7 +25,11 @@ const MermaidDisplay = ({ chart }) => {
   useEffect(() => {
     if (containerRef.current && chart) {
       mermaid.render(`mermaid-${Date.now()}`, chart).then(({ svg }) => {
-        containerRef.current.innerHTML = svg;
+        if (containerRef.current) {
+          containerRef.current.innerHTML = svg;
+        }
+      }).catch(err => {
+        console.error('Mermaid render error:', err);
       });
     }
   }, [chart, themeName]);

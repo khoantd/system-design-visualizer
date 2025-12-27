@@ -5,6 +5,12 @@ import {
   Code,
   Image as ImageIcon,
   Layout,
+  RotateCw,
+  AlignCenter,
+  AlignLeft,
+  Save,
+  FolderOpen,
+  Trash2,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ReactFlowProvider, applyNodeChanges, applyEdgeChanges } from "reactflow";
@@ -12,11 +18,12 @@ import InfoPanel from "./components/InfoPanel";
 import MermaidDisplay from "./components/MermaidDisplay";
 import SystemDiagram from "./components/SystemDiagram";
 import ThemeToggle from "./components/ThemeToggle";
-import UploadZone from "./components/UploadZone";
+import MainOptions from "./components/MainOptions";
 import {
   convertMermaidToFlow,
   generateMermaidFromImage,
 } from "./services/analysisService";
+import dagre from '@dagrejs/dagre';
 
 function App() {
   const [graphData, setGraphData] = useState(null);
@@ -28,8 +35,31 @@ function App() {
   const [selectedEdge, setSelectedEdge] = useState(null);
   const [nodes, setNodes] = useState([]);
   const [edges, setEdges] = useState([]);
+  const [layoutDirection, setLayoutDirection] = useState('LR');
+  const [connectionLineType, setConnectionLineType] = useState('straight');
+  const [savedDiagrams, setSavedDiagrams] = useState([]);
+  const [showSavedDiagrams, setShowSavedDiagrams] = useState(false);
 
   const interactiveSectionRef = useRef(null);
+
+  // Load saved diagrams from localStorage on component mount
+  useEffect(() => {
+    const stored = localStorage.getItem('savedDiagrams');
+    if (stored) {
+      try {
+        setSavedDiagrams(JSON.parse(stored));
+      } catch (error) {
+        console.error('Failed to load saved diagrams:', error);
+      }
+    }
+  }, []);
+
+  // Save diagrams to localStorage whenever they change
+  useEffect(() => {
+    if (savedDiagrams.length > 0) {
+      localStorage.setItem('savedDiagrams', JSON.stringify(savedDiagrams));
+    }
+  }, [savedDiagrams]);
 
   const handleUpload = async (file) => {
     console.log("App: handleUpload called with file:", file);
@@ -97,7 +127,15 @@ function App() {
       console.log("App: validatedNodes count:", validatedNodes.length);
       console.log("App: validatedNodes:", validatedNodes);
       setNodes(validatedNodes);
-      setEdges(data.edges || []);
+      setEdges((data.edges || []).map(edge => ({
+        ...edge,
+        type: "straight"
+      })));
+
+      // Apply default layout after a short delay to ensure nodes are rendered
+      setTimeout(() => {
+        applyLayout('LR');
+      }, 100);
 
       // Scroll to interactive section after a short delay to allow render
       setTimeout(() => {
@@ -118,6 +156,60 @@ function App() {
     setSelectedEdge(null);
     setNodes([]);
     setEdges([]);
+  };
+
+  const handleSaveDiagram = () => {
+    if (nodes.length === 0) {
+      alert('No diagram to save. Please create a diagram first.');
+      return;
+    }
+
+    const diagramName = prompt('Enter a name for this diagram:', `Diagram ${new Date().toLocaleString()}`);
+    if (!diagramName) return;
+
+    const diagramData = {
+      id: Date.now().toString(),
+      name: diagramName,
+      nodes: nodes,
+      edges: edges,
+      mermaidCode: mermaidCode,
+      createdAt: new Date().toISOString(),
+      layoutDirection: layoutDirection,
+      connectionLineType: connectionLineType
+    };
+
+    setSavedDiagrams(prev => [...prev, diagramData]);
+    alert('Diagram saved successfully!');
+  };
+
+  const handleLoadDiagram = (diagram) => {
+    setNodes(diagram.nodes);
+    setEdges(diagram.edges);
+    setMermaidCode(diagram.mermaidCode || '');
+    setLayoutDirection(diagram.layoutDirection || 'LR');
+    setConnectionLineType(diagram.connectionLineType || 'straight');
+    setGraphData({ nodes: diagram.nodes, edges: diagram.edges });
+    setSelectedNode(null);
+    setSelectedEdge(null);
+    
+    // Update edge types to match the loaded connection line type
+    const loadedConnectionType = diagram.connectionLineType || 'straight';
+    const updatedEdges = (diagram.edges || []).map(edge => ({
+      ...edge,
+      type: loadedConnectionType
+    }));
+    setEdges(updatedEdges);
+    
+    // Scroll to interactive section
+    setTimeout(() => {
+      interactiveSectionRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, 100);
+  };
+
+  const handleDeleteDiagram = (diagramId) => {
+    if (confirm('Are you sure you want to delete this diagram?')) {
+      setSavedDiagrams(prev => prev.filter(d => d.id !== diagramId));
+    }
   };
 
   const handleNodeClick = (node) => {
@@ -188,17 +280,128 @@ function App() {
   // React Flow change handlers - must use applyNodeChanges and applyEdgeChanges
   const onNodesChange = useCallback(
     (changes) => {
-      setNodes((nds) => applyNodeChanges(changes, nds));
+      // Handle custom 'replace' type for node updates (e.g., adding to subflow)
+      const replaceChanges = changes.filter(c => c.type === 'replace');
+      const standardChanges = changes.filter(c => c.type !== 'replace');
+      
+      setNodes((nds) => {
+        let newNodes = nds;
+        
+        // Apply standard changes
+        if (standardChanges.length > 0) {
+          newNodes = applyNodeChanges(standardChanges, newNodes);
+        }
+        
+        // Apply replace changes (update entire node)
+        if (replaceChanges.length > 0) {
+          newNodes = newNodes.map(node => {
+            const replacement = replaceChanges.find(c => c.item?.id === node.id);
+            return replacement ? replacement.item : node;
+          });
+        }
+        
+        return newNodes;
+      });
     },
     []
   );
 
   const onEdgesChange = useCallback(
     (changes) => {
-      setEdges((eds) => applyEdgeChanges(changes, eds));
+      // Handle custom 'replace' type for edge updates
+      const replaceChanges = changes.filter(c => c.type === 'replace');
+      const standardChanges = changes.filter(c => c.type !== 'replace');
+      
+      setEdges((eds) => {
+        let newEdges = eds;
+        
+        // Apply standard changes
+        if (standardChanges.length > 0) {
+          newEdges = applyEdgeChanges(standardChanges, newEdges);
+        }
+        
+        // Apply replace changes (update entire edge)
+        if (replaceChanges.length > 0) {
+          newEdges = newEdges.map(edge => {
+            const replacement = replaceChanges.find(c => c.item?.id === edge.id);
+            return replacement ? replacement.item : edge;
+          });
+        }
+        
+        return newEdges;
+      });
     },
     []
   );
+
+  // Layout functions using Dagre
+  const getLayoutedElements = useCallback((nodes, edges, direction = 'LR') => {
+    const dagreGraph = new dagre.graphlib.Graph().setDefaultEdgeLabel(() => ({}));
+    
+    const nodeWidth = 200;
+    const nodeHeight = 120;
+    
+    const isHorizontal = direction === 'LR';
+    dagreGraph.setGraph({ 
+      rankdir: direction,
+      nodesep: 100,
+      ranksep: 150,
+      marginx: 50,
+      marginy: 50
+    });
+
+    nodes.forEach((node) => {
+      dagreGraph.setNode(node.id, { width: nodeWidth, height: nodeHeight });
+    });
+
+    edges.forEach((edge) => {
+      dagreGraph.setEdge(edge.source, edge.target);
+    });
+
+    dagre.layout(dagreGraph);
+
+    const newNodes = nodes.map((node) => {
+      const nodeWithPosition = dagreGraph.node(node.id);
+      const newNode = {
+        ...node,
+        targetPosition: isHorizontal ? 'left' : 'top',
+        sourcePosition: isHorizontal ? 'right' : 'bottom',
+        // We are shifting the dagre node position (anchor=center center) to the top left
+        // so it matches the React Flow node anchor point (top left).
+        position: {
+          x: nodeWithPosition.x - nodeWidth / 2,
+          y: nodeWithPosition.y - nodeHeight / 2,
+        },
+      };
+
+      return newNode;
+    });
+
+    return { nodes: newNodes, edges };
+  }, []);
+
+  const applyLayout = useCallback((direction) => {
+    if (nodes.length === 0) return;
+
+    const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(
+      nodes,
+      edges,
+      direction,
+    );
+
+    // Update edges to use straight line type
+    const updatedEdges = layoutedEdges.map(edge => ({
+      ...edge,
+      type: "straight"
+    }));
+
+    setNodes([...layoutedNodes]);
+    setEdges([...updatedEdges]);
+    setLayoutDirection(direction);
+  }, [nodes, edges, getLayoutedElements]);
+
+  const handleLayoutHorizontal = () => applyLayout('LR');
+  const handleLayoutVertical = () => applyLayout('TB');
 
   // Clean up object URL when component unmounts or image changes
   useEffect(() => {
@@ -246,28 +449,76 @@ function App() {
 
           <div className="flex items-center gap-3">
             {showDashboard && (
-              <button
-                onClick={handleReset}
-                className="group flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all"
-                style={{
-                  backgroundColor: "var(--interactive-bg)",
-                  color: "var(--text-primary)",
-                  border: "1px solid var(--border-primary)",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor =
-                    "var(--interactive-hover)";
-                  e.currentTarget.style.borderColor = "var(--border-hover)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor =
-                    "var(--interactive-bg)";
-                  e.currentTarget.style.borderColor = "var(--border-primary)";
-                }}
-              >
-                <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-0.5" />
-                Upload New Design
-              </button>
+              <>
+                <button
+                  onClick={handleSaveDiagram}
+                  className="group flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all"
+                  style={{
+                    backgroundColor: "var(--interactive-bg)",
+                    color: "var(--text-primary)",
+                    border: "1px solid var(--border-primary)",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor =
+                      "var(--interactive-hover)";
+                    e.currentTarget.style.borderColor = "var(--border-hover)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor =
+                      "var(--interactive-bg)";
+                    e.currentTarget.style.borderColor = "var(--border-primary)";
+                  }}
+                  title="Save current diagram"
+                >
+                  <Save className="w-4 h-4" />
+                  Save
+                </button>
+                <button
+                  onClick={() => setShowSavedDiagrams(!showSavedDiagrams)}
+                  className="group flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all"
+                  style={{
+                    backgroundColor: "var(--interactive-bg)",
+                    color: "var(--text-primary)",
+                    border: "1px solid var(--border-primary)",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor =
+                      "var(--interactive-hover)";
+                    e.currentTarget.style.borderColor = "var(--border-hover)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor =
+                      "var(--interactive-bg)";
+                    e.currentTarget.style.borderColor = "var(--border-primary)";
+                  }}
+                  title="Load saved diagrams"
+                >
+                  <FolderOpen className="w-4 h-4" />
+                  Load ({savedDiagrams.length})
+                </button>
+                <button
+                  onClick={handleReset}
+                  className="group flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all"
+                  style={{
+                    backgroundColor: "var(--interactive-bg)",
+                    color: "var(--text-primary)",
+                    border: "1px solid var(--border-primary)",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor =
+                      "var(--interactive-hover)";
+                    e.currentTarget.style.borderColor = "var(--border-hover)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor =
+                      "var(--interactive-bg)";
+                    e.currentTarget.style.borderColor = "var(--border-primary)";
+                  }}
+                >
+                  <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-0.5" />
+                  Upload New Design
+                </button>
+              </>
             )}
             <ThemeToggle />
           </div>
@@ -301,12 +552,18 @@ function App() {
                 className="text-lg leading-relaxed max-w-xl mx-auto"
                 style={{ color: "var(--text-secondary)" }}
               >
-                Upload a system design image and let our AI convert it into an
-                interactive, explorable diagram with detailed component
+                Upload a system design image or load a saved diagram to create an
+                interactive, explorable visualization with detailed component
                 information.
               </p>
             </div>
-            <UploadZone onUpload={handleUpload} isAnalyzing={isAnalyzing} />
+            <MainOptions
+              onUpload={handleUpload}
+              isAnalyzing={isAnalyzing}
+              savedDiagrams={savedDiagrams}
+              onLoadDiagram={handleLoadDiagram}
+              onDeleteDiagram={handleDeleteDiagram}
+            />
           </div>
         ) : (
           <div className="flex flex-col p-6 gap-6 max-w-[1920px] mx-auto">
@@ -469,6 +726,42 @@ function App() {
                     Interactive Visualization
                   </h3>
                 </div>
+                
+                {/* Layout Controls */}
+                {(graphData || nodes.length > 0) && (
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="flex items-center gap-1 px-2 py-1 rounded-md"
+                      style={{
+                        backgroundColor: "var(--bg-secondary)",
+                        border: "1px solid var(--border-primary)",
+                      }}
+                    >
+                      <button
+                        onClick={handleLayoutHorizontal}
+                        className="p-1.5 rounded transition-all"
+                        style={{
+                          backgroundColor: layoutDirection === 'LR' ? "var(--accent-blue)" : "transparent",
+                          color: layoutDirection === 'LR' ? "white" : "var(--text-secondary)",
+                        }}
+                        title="Horizontal Layout"
+                      >
+                        <AlignLeft className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={handleLayoutVertical}
+                        className="p-1.5 rounded transition-all"
+                        style={{
+                          backgroundColor: layoutDirection === 'TB' ? "var(--accent-blue)" : "transparent",
+                          color: layoutDirection === 'TB' ? "white" : "var(--text-secondary)",
+                        }}
+                        title="Vertical Layout"
+                      >
+                        <AlignCenter className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div
@@ -487,6 +780,8 @@ function App() {
                         onEdgeClick={handleEdgeClick}
                         selectedNode={selectedNode}
                         selectedEdge={selectedEdge}
+                        onConnectionLineTypeChange={setConnectionLineType}
+                        connectionLineType={connectionLineType}
                       />
                     </ReactFlowProvider>
                     <InfoPanel
@@ -563,6 +858,111 @@ function App() {
                   </div>
                 )}
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Saved Diagrams Sidebar */}
+        {showSavedDiagrams && (
+          <div
+            className="fixed right-0 top-16 h-[calc(100vh-64px)] w-80 shadow-2xl z-40 overflow-hidden"
+            style={{
+              backgroundColor: "var(--bg-elevated)",
+              border: "1px solid var(--border-primary)",
+              borderRight: "none",
+            }}
+          >
+            <div
+              className="px-5 py-3 flex items-center justify-between"
+              style={{
+                borderBottom: "1px solid var(--border-secondary)",
+                backgroundColor: "var(--bg-tertiary)",
+              }}
+            >
+              <div className="flex items-center gap-2.5">
+                <FolderOpen
+                  className="w-4 h-4"
+                  style={{ color: "var(--accent-blue)" }}
+                />
+                <h3
+                  className="text-xs font-semibold uppercase tracking-wider"
+                  style={{ color: "var(--text-secondary)" }}
+                >
+                  Saved Diagrams
+                </h3>
+              </div>
+              <button
+                onClick={() => setShowSavedDiagrams(false)}
+                className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
+                style={{ color: "var(--text-secondary)" }}
+              >
+                ×
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4">
+              {savedDiagrams.length === 0 ? (
+                <div
+                  className="text-center py-8"
+                  style={{ color: "var(--text-muted)" }}
+                >
+                  <FolderOpen className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <p className="text-sm">No saved diagrams yet</p>
+                  <p className="text-xs mt-2">Create and save a diagram to see it here</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {savedDiagrams.map((diagram) => (
+                    <div
+                      key={diagram.id}
+                      className="p-3 rounded-lg border transition-all hover:shadow-md"
+                      style={{
+                        backgroundColor: "var(--bg-secondary)",
+                        borderColor: "var(--border-primary)",
+                      }}
+                    >
+                      <div className="flex items-start justify-between mb-2">
+                        <h4
+                          className="font-medium text-sm truncate flex-1"
+                          style={{ color: "var(--text-primary)" }}
+                          title={diagram.name}
+                        >
+                          {diagram.name}
+                        </h4>
+                        <button
+                          onClick={() => handleDeleteDiagram(diagram.id)}
+                          className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900 ml-2"
+                          style={{ color: "var(--text-muted)" }}
+                          title="Delete diagram"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
+                      <div className="flex items-center gap-4 text-xs mb-3">
+                        <span style={{ color: "var(--text-muted)" }}>
+                          {diagram.nodes.length} nodes
+                        </span>
+                        <span style={{ color: "var(--text-muted)" }}>
+                          {diagram.edges.length} edges
+                        </span>
+                      </div>
+                      <div className="text-xs mb-3" style={{ color: "var(--text-muted)" }}>
+                        {new Date(diagram.createdAt).toLocaleString()}
+                      </div>
+                      <button
+                        onClick={() => handleLoadDiagram(diagram)}
+                        className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded text-xs font-medium transition-all"
+                        style={{
+                          backgroundColor: "var(--accent-blue)",
+                          color: "white",
+                        }}
+                      >
+                        <FolderOpen className="w-3 h-3" />
+                        Load Diagram
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}
