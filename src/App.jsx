@@ -201,7 +201,17 @@ function App() {
 
   
   const handleLoadDiagram = (diagram) => {
-    setNodes(diagram.nodes);
+    // Ensure proper zIndex for subflows and child nodes when loading
+    const loadedNodes = (diagram.nodes || []).map(node => {
+      if (node.type === 'subflowNode') {
+        return { ...node, zIndex: node.zIndex ?? -1 };
+      }
+      if (node.parentNode) {
+        return { ...node, zIndex: node.zIndex ?? 1000 };
+      }
+      return node;
+    });
+    setNodes(loadedNodes);
     setEdges(diagram.edges);
     setMermaidCode(diagram.mermaidCode || '');
     setLayoutDirection(diagram.layoutDirection || 'LR');
@@ -457,6 +467,11 @@ function App() {
               description: action.description || '',
               tech: action.tech || '',
             },
+            // Subflows should be behind other nodes to allow child node selection
+            ...(nodeType === 'subflowNode' && {
+              style: { width: 300, height: 200 },
+              zIndex: -1,
+            }),
           };
           nodesToAdd.push(newNode);
           break;

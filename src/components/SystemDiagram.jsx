@@ -127,6 +127,7 @@ const SystemDiagram = ({
           },
           ...(nodeType === 'subflowNode' && {
             style: { width: 300, height: 200 },
+            zIndex: -1, // Subflows should be behind other nodes
           }),
         };
         onNodesChange([{ type: "add", item: newNode }]);
@@ -154,6 +155,7 @@ const SystemDiagram = ({
         },
         ...(nodeType === 'subflowNode' && {
           style: { width: 300, height: 200 },
+          zIndex: -1, // Subflows should be behind other nodes
         }),
       };
 
@@ -239,11 +241,13 @@ const SystemDiagram = ({
           const relativeY = draggedNode.position.y - subflow.position.y;
 
           // Update the node to be a child of the subflow
+          // Set zIndex higher than subflows to ensure child nodes are always clickable
           const updatedNode = {
             ...draggedNode,
             position: { x: relativeX, y: relativeY },
             parentNode: subflow.id,
             extent: 'parent',
+            zIndex: 1000, // Ensure child nodes are above all subflow containers
           };
 
           console.log('[handleNodeDragStop] Updating node to be child of subflow', updatedNode);
