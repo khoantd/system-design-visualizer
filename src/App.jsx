@@ -288,22 +288,34 @@ function App() {
     }
   };
 
-  const handleDelete = (item) => {
-    if (item.id && nodes.find((n) => n.id === item.id)) {
-      // It's a node - delete node and connected edges
-      setNodes((prevNodes) => prevNodes.filter((n) => n.id !== item.id));
-      setEdges((prevEdges) =>
-        prevEdges.filter(
-          (e) => e.source !== item.id && e.target !== item.id
-        )
-      );
-      setSelectedNode(null);
-    } else if (item.id && edges.find((e) => e.id === item.id)) {
-      // It's an edge
-      setEdges((prevEdges) => prevEdges.filter((e) => e.id !== item.id));
-      setSelectedEdge(null);
-    }
-  };
+  const handleDelete = useCallback((item) => {
+    if (!item?.id) return;
+    
+    // Use functional updates to check against current state
+    setNodes((prevNodes) => {
+      const nodeExists = prevNodes.find((n) => n.id === item.id);
+      if (nodeExists) {
+        // Also remove connected edges
+        setEdges((prevEdges) =>
+          prevEdges.filter(
+            (e) => e.source !== item.id && e.target !== item.id
+          )
+        );
+        setSelectedNode(null);
+        return prevNodes.filter((n) => n.id !== item.id);
+      }
+      return prevNodes;
+    });
+    
+    setEdges((prevEdges) => {
+      const edgeExists = prevEdges.find((e) => e.id === item.id);
+      if (edgeExists) {
+        setSelectedEdge(null);
+        return prevEdges.filter((e) => e.id !== item.id);
+      }
+      return prevEdges;
+    });
+  }, []);
 
   // React Flow change handlers - must use applyNodeChanges and applyEdgeChanges
   const onNodesChange = useCallback(
