@@ -184,11 +184,16 @@ function App() {
   };
 
   const handleSaveAsDiagram = () => {
+    console.log('handleSaveAsDiagram called');
+    console.log('nodes.length:', nodes.length);
+    
     if (nodes.length === 0) {
+      console.log('No nodes to save, showing alert');
       alert('No diagram to save. Please create a diagram first.');
       return;
     }
 
+    console.log('Prompting for diagram name...');
     const diagramName = prompt('Save as new diagram with name:', `Diagram Copy ${new Date().toLocaleString()}`);
     if (!diagramName) return;
 
