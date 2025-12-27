@@ -9,6 +9,7 @@ import {
   AlignCenter,
   AlignLeft,
   Save,
+  SaveAll,
   FolderOpen,
   Trash2,
 } from "lucide-react";
@@ -180,6 +181,30 @@ function App() {
 
     setSavedDiagrams(prev => [...prev, diagramData]);
     alert('Diagram saved successfully!');
+  };
+
+  const handleSaveAsDiagram = () => {
+    if (nodes.length === 0) {
+      alert('No diagram to save. Please create a diagram first.');
+      return;
+    }
+
+    const diagramName = prompt('Save as new diagram with name:', `Diagram Copy ${new Date().toLocaleString()}`);
+    if (!diagramName) return;
+
+    const diagramData = {
+      id: Date.now().toString(),
+      name: diagramName,
+      nodes: JSON.parse(JSON.stringify(nodes)),
+      edges: JSON.parse(JSON.stringify(edges)),
+      mermaidCode: mermaidCode,
+      createdAt: new Date().toISOString(),
+      layoutDirection: layoutDirection,
+      connectionLineType: connectionLineType
+    };
+
+    setSavedDiagrams(prev => [...prev, diagramData]);
+    alert(`Diagram saved as "${diagramName}"!`);
   };
 
   const handleLoadDiagram = (diagram) => {
@@ -472,6 +497,29 @@ function App() {
                 >
                   <Save className="w-4 h-4" />
                   Save
+                </button>
+                <button
+                  onClick={handleSaveAsDiagram}
+                  className="group flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all"
+                  style={{
+                    backgroundColor: "var(--interactive-bg)",
+                    color: "var(--text-primary)",
+                    border: "1px solid var(--border-primary)",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor =
+                      "var(--interactive-hover)";
+                    e.currentTarget.style.borderColor = "var(--border-hover)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor =
+                      "var(--interactive-bg)";
+                    e.currentTarget.style.borderColor = "var(--border-primary)";
+                  }}
+                  title="Save as new diagram"
+                >
+                  <SaveAll className="w-4 h-4" />
+                  Save As
                 </button>
                 <button
                   onClick={() => setShowSavedDiagrams(!showSavedDiagrams)}
