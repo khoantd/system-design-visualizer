@@ -9,7 +9,6 @@ import {
   AlignCenter,
   AlignLeft,
   Save,
-  SaveAll,
   FolderOpen,
   Trash2,
 } from "lucide-react";
@@ -40,8 +39,8 @@ function App() {
   const [connectionLineType, setConnectionLineType] = useState('straight');
   const [savedDiagrams, setSavedDiagrams] = useState([]);
   const [showSavedDiagrams, setShowSavedDiagrams] = useState(false);
-  const [showSaveAsModal, setShowSaveAsModal] = useState(false);
-  const [saveAsName, setSaveAsName] = useState('');
+  const [showSaveModal, setShowSaveModal] = useState(false);
+  const [saveName, setSaveName] = useState('');
 
   const interactiveSectionRef = useRef(null);
 
@@ -168,61 +167,23 @@ function App() {
   };
 
   const handleSaveDiagram = () => {
-    console.log('handleSaveDiagram called');
-    console.log('nodes:', nodes);
-    console.log('nodes.length:', nodes.length);
-    
     if (nodes.length === 0) {
       alert('No diagram to save. Please create a diagram first.');
       return;
     }
-
-    const diagramName = prompt('Enter a name for this diagram:', `Diagram ${new Date().toLocaleString()}`);
-    console.log('diagramName from prompt:', diagramName);
-    if (!diagramName) {
-      console.log('No diagram name provided, returning');
-      return;
-    }
-
-    const diagramData = {
-      id: Date.now().toString(),
-      name: diagramName,
-      nodes: JSON.parse(JSON.stringify(nodes)),
-      edges: JSON.parse(JSON.stringify(edges)),
-      mermaidCode: mermaidCode,
-      createdAt: new Date().toISOString(),
-      layoutDirection: layoutDirection,
-      connectionLineType: connectionLineType
-    };
-    console.log('diagramData to save:', diagramData);
-
-    setSavedDiagrams(prev => {
-      console.log('Previous savedDiagrams:', prev);
-      const newDiagrams = [...prev, diagramData];
-      console.log('New savedDiagrams:', newDiagrams);
-      return newDiagrams;
-    });
-    alert('Diagram saved successfully!');
+    setSaveName(`Diagram ${new Date().toLocaleString()}`);
+    setShowSaveModal(true);
   };
 
-  const handleSaveAsDiagram = () => {
-    if (nodes.length === 0) {
-      alert('No diagram to save. Please create a diagram first.');
-      return;
-    }
-    setSaveAsName(`Diagram Copy ${new Date().toLocaleString()}`);
-    setShowSaveAsModal(true);
-  };
-
-  const handleConfirmSaveAs = () => {
-    if (!saveAsName.trim()) {
+  const handleConfirmSave = () => {
+    if (!saveName.trim()) {
       alert('Please enter a name for the diagram.');
       return;
     }
 
     const diagramData = {
       id: Date.now().toString(),
-      name: saveAsName.trim(),
+      name: saveName.trim(),
       nodes: JSON.parse(JSON.stringify(nodes)),
       edges: JSON.parse(JSON.stringify(edges)),
       mermaidCode: mermaidCode,
@@ -232,11 +193,11 @@ function App() {
     };
 
     setSavedDiagrams(prev => [...prev, diagramData]);
-    setShowSaveAsModal(false);
-    setSaveAsName('');
-    alert(`Diagram saved as "${saveAsName.trim()}"!`);
+    setShowSaveModal(false);
+    setSaveName('');
   };
 
+  
   const handleLoadDiagram = (diagram) => {
     setNodes(diagram.nodes);
     setEdges(diagram.edges);
@@ -527,29 +488,6 @@ function App() {
                 >
                   <Save className="w-4 h-4" />
                   Save
-                </button>
-                <button
-                  onClick={handleSaveAsDiagram}
-                  className="group flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all"
-                  style={{
-                    backgroundColor: "var(--interactive-bg)",
-                    color: "var(--text-primary)",
-                    border: "1px solid var(--border-primary)",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor =
-                      "var(--interactive-hover)";
-                    e.currentTarget.style.borderColor = "var(--border-hover)";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor =
-                      "var(--interactive-bg)";
-                    e.currentTarget.style.borderColor = "var(--border-primary)";
-                  }}
-                  title="Save as new diagram"
-                >
-                  <SaveAll className="w-4 h-4" />
-                  Save As
                 </button>
                 <button
                   onClick={() => setShowSavedDiagrams(!showSavedDiagrams)}
@@ -1045,8 +983,8 @@ function App() {
           </div>
         )}
 
-        {/* Save As Modal */}
-        {showSaveAsModal && (
+        {/* Save Modal */}
+        {showSaveModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
             <div
               className="rounded-xl p-6 w-96 shadow-2xl"
@@ -1059,12 +997,12 @@ function App() {
                 className="text-lg font-semibold mb-4"
                 style={{ color: "var(--text-primary)" }}
               >
-                Save As
+                Save Diagram
               </h3>
               <input
                 type="text"
-                value={saveAsName}
-                onChange={(e) => setSaveAsName(e.target.value)}
+                value={saveName}
+                onChange={(e) => setSaveName(e.target.value)}
                 placeholder="Enter diagram name"
                 className="w-full px-4 py-2 rounded-lg mb-4 outline-none"
                 style={{
@@ -1074,13 +1012,13 @@ function App() {
                 }}
                 autoFocus
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleConfirmSaveAs();
-                  if (e.key === 'Escape') setShowSaveAsModal(false);
+                  if (e.key === 'Enter') handleConfirmSave();
+                  if (e.key === 'Escape') setShowSaveModal(false);
                 }}
               />
               <div className="flex gap-3 justify-end">
                 <button
-                  onClick={() => setShowSaveAsModal(false)}
+                  onClick={() => setShowSaveModal(false)}
                   className="px-4 py-2 rounded-lg text-sm font-medium"
                   style={{
                     backgroundColor: "var(--bg-secondary)",
@@ -1091,7 +1029,7 @@ function App() {
                   Cancel
                 </button>
                 <button
-                  onClick={handleConfirmSaveAs}
+                  onClick={handleConfirmSave}
                   className="px-4 py-2 rounded-lg text-sm font-medium"
                   style={{
                     backgroundColor: "var(--accent-blue)",
@@ -1104,7 +1042,8 @@ function App() {
             </div>
           </div>
         )}
-      </main>
+
+        </main>
     </div>
   );
 }
