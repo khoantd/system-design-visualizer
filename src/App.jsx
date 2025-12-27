@@ -19,6 +19,7 @@ import MermaidDisplay from "./components/MermaidDisplay";
 import SystemDiagram from "./components/SystemDiagram";
 import ThemeToggle from "./components/ThemeToggle";
 import MainOptions from "./components/MainOptions";
+import AIChatPanel from "./components/AIChatPanel";
 import {
   convertMermaidToFlow,
   generateMermaidFromImage,
@@ -41,6 +42,7 @@ function App() {
   const [showSavedDiagrams, setShowSavedDiagrams] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [saveName, setSaveName] = useState('');
+  const [isChatOpen, setIsChatOpen] = useState(false);
 
   const interactiveSectionRef = useRef(null);
 
@@ -418,6 +420,132 @@ function App() {
 
   const handleLayoutHorizontal = () => applyLayout('LR');
   const handleLayoutVertical = () => applyLayout('TB');
+
+  // Handle AI chat actions to modify the diagram
+  const handleApplyAIActions = useCallback((actions) => {
+    if (!actions || actions.length === 0) return;
+
+    // Valid node types in the system
+    const validNodeTypes = ['serverNode', 'databaseNode', 'cacheNode', 'loadBalancerNode', 'clientNode', 'userNode', 'subflowNode'];
+
+    // Collect all changes first, then apply in single state updates
+    const nodesToAdd = [];
+    const nodeIdsToRemove = [];
+    const nodeUpdates = {}; // nodeId -> updates
+    const edgesToAdd = [];
+    const edgeIdsToRemove = [];
+
+    actions.forEach((action, index) => {
+      switch (action.type) {
+        case 'addNode': {
+          // Validate and fallback node type
+          let nodeType = action.nodeType || 'serverNode';
+          if (!validNodeTypes.includes(nodeType)) {
+            console.warn(`Invalid node type "${nodeType}", falling back to serverNode`);
+            nodeType = 'serverNode';
+          }
+          
+          const newNode = {
+            id: `ai-node-${Date.now()}-${index}-${Math.random().toString(36).substr(2, 9)}`,
+            type: nodeType,
+            position: { 
+              x: 250 + (index % 3) * 250, 
+              y: 100 + Math.floor(index / 3) * 200 
+            },
+            data: {
+              label: action.label || 'New Node',
+              description: action.description || '',
+              tech: action.tech || '',
+            },
+          };
+          nodesToAdd.push(newNode);
+          break;
+        }
+        case 'removeNode': {
+          nodeIdsToRemove.push(action.nodeId);
+          break;
+        }
+        case 'addEdge': {
+          const newEdge = {
+            id: `ai-edge-${Date.now()}-${index}-${Math.random().toString(36).substr(2, 9)}`,
+            source: action.source,
+            target: action.target,
+            label: action.label || '',
+            type: connectionLineType,
+            animated: true,
+          };
+          edgesToAdd.push(newEdge);
+          break;
+        }
+        case 'removeEdge': {
+          edgeIdsToRemove.push(action.edgeId);
+          break;
+        }
+        case 'updateNode': {
+          nodeUpdates[action.nodeId] = action.updates;
+          break;
+        }
+        default:
+          console.warn('Unknown AI action type:', action.type);
+      }
+    });
+
+    // Apply all node changes in a single update
+    setNodes((prevNodes) => {
+      let newNodes = [...prevNodes];
+      
+      // Remove nodes
+      if (nodeIdsToRemove.length > 0) {
+        newNodes = newNodes.filter((n) => !nodeIdsToRemove.includes(n.id));
+      }
+      
+      // Update nodes
+      if (Object.keys(nodeUpdates).length > 0) {
+        newNodes = newNodes.map((n) => {
+          if (nodeUpdates[n.id]) {
+            return {
+              ...n,
+              data: {
+                ...n.data,
+                ...nodeUpdates[n.id],
+              },
+            };
+          }
+          return n;
+        });
+      }
+      
+      // Add new nodes
+      if (nodesToAdd.length > 0) {
+        newNodes = [...newNodes, ...nodesToAdd];
+      }
+      
+      console.log('AI Actions - Updated nodes:', newNodes.length, 'Added:', nodesToAdd.length);
+      return newNodes;
+    });
+
+    // Apply all edge changes in a single update
+    setEdges((prevEdges) => {
+      let newEdges = [...prevEdges];
+      
+      // Remove edges (including edges connected to removed nodes)
+      if (edgeIdsToRemove.length > 0 || nodeIdsToRemove.length > 0) {
+        newEdges = newEdges.filter((e) => 
+          !edgeIdsToRemove.includes(e.id) &&
+          !nodeIdsToRemove.includes(e.source) &&
+          !nodeIdsToRemove.includes(e.target)
+        );
+      }
+      
+      // Add new edges
+      if (edgesToAdd.length > 0) {
+        newEdges = [...newEdges, ...edgesToAdd];
+      }
+      
+      return newEdges;
+    });
+
+  }, [connectionLineType]);
 
   // Clean up object URL when component unmounts or image changes
   useEffect(() => {
@@ -1044,6 +1172,17 @@ function App() {
         )}
 
         </main>
+
+      {/* AI Chat Panel */}
+      {(graphData || nodes.length > 0) && (
+        <AIChatPanel
+          nodes={nodes}
+          edges={edges}
+          onApplyActions={handleApplyAIActions}
+          isOpen={isChatOpen}
+          onToggle={() => setIsChatOpen(!isChatOpen)}
+        />
+      )}
     </div>
   );
 }
