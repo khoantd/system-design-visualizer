@@ -1,9 +1,11 @@
-import { FileUp, FolderOpen, Loader2 } from "lucide-react";
+import { FileUp, FolderOpen, Loader2, Layers } from "lucide-react";
 import { useCallback, useState } from "react";
 import LoadDiagramPanel from "./LoadDiagramPanel";
+import SpecToComponentPanel from "./SpecToComponentPanel";
 
-const MainOptions = ({ onUpload, isAnalyzing, savedDiagrams, onLoadDiagram, onDeleteDiagram }) => {
+const MainOptions = ({ onUpload, isAnalyzing, savedDiagrams, onLoadDiagram, onDeleteDiagram, onGenerateFromSpec }) => {
   const [showLoadPanel, setShowLoadPanel] = useState(false);
+  const [showSpecPanel, setShowSpecPanel] = useState(false);
 
   const handleDrop = useCallback(
     (e) => {
@@ -40,10 +42,15 @@ const MainOptions = ({ onUpload, isAnalyzing, savedDiagrams, onLoadDiagram, onDe
     onDeleteDiagram(diagramId);
   }, [onDeleteDiagram]);
 
+  const handleGenerateFromSpec = useCallback((result) => {
+    onGenerateFromSpec(result);
+    setShowSpecPanel(false);
+  }, [onGenerateFromSpec]);
+
   return (
     <>
       <div className="w-full max-w-4xl mx-auto mt-10">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Upload Option */}
           <div
             className="p-8 border-2 border-dashed rounded-xl transition-all cursor-pointer flex flex-col items-center justify-center gap-4 group hover:border-[var(--accent-blue)]"
@@ -136,12 +143,43 @@ const MainOptions = ({ onUpload, isAnalyzing, savedDiagrams, onLoadDiagram, onDe
               </p>
             </div>
           </div>
+
+          {/* Spec to C4 Component Option */}
+          <div
+            className="p-8 border-2 border-dashed rounded-xl transition-all cursor-pointer flex flex-col items-center justify-center gap-4 group hover:border-[var(--accent-emerald)]"
+            style={{
+              borderColor: "var(--border-primary)",
+              backgroundColor: "var(--bg-secondary)",
+            }}
+            onClick={() => setShowSpecPanel(true)}
+          >
+            <div
+              className="p-4 rounded-full transition-colors group-hover:bg-[rgba(16,185,129,0.1)]"
+              style={{ backgroundColor: "var(--interactive-bg)" }}
+            >
+              <Layers
+                className="w-12 h-12 group-hover:text-[var(--accent-emerald)]"
+                style={{ color: "var(--text-secondary)" }}
+              />
+            </div>
+            <div className="text-center">
+              <h3
+                className="text-xl font-medium mb-2"
+                style={{ color: "var(--text-primary)" }}
+              >
+                Spec to C4 Component
+              </h3>
+              <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+                Convert functional specification to C4 Component diagram
+              </p>
+            </div>
+          </div>
         </div>
 
         {/* Instructions */}
         <div className="mt-8 text-center">
           <p className="text-sm" style={{ color: "var(--text-muted)" }}>
-            Choose to upload a new system design image or load a previously saved diagram to continue your work
+            Upload an image, load a saved diagram, or generate a C4 Component diagram from your specification
           </p>
         </div>
       </div>
@@ -153,6 +191,14 @@ const MainOptions = ({ onUpload, isAnalyzing, savedDiagrams, onLoadDiagram, onDe
           onLoadDiagram={handleLoadDiagram}
           onDeleteDiagram={handleDeleteDiagram}
           onClose={() => setShowLoadPanel(false)}
+        />
+      )}
+
+      {/* Spec to Component Modal */}
+      {showSpecPanel && (
+        <SpecToComponentPanel
+          onGenerate={handleGenerateFromSpec}
+          onClose={() => setShowSpecPanel(false)}
         />
       )}
     </>

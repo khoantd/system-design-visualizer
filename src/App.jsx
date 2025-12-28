@@ -3,6 +3,7 @@ import {
   ArrowDown,
   ArrowLeft,
   Code,
+  Code2,
   Image as ImageIcon,
   Layout,
   RotateCw,
@@ -20,6 +21,7 @@ import SystemDiagram from "./components/SystemDiagram";
 import ThemeToggle from "./components/ThemeToggle";
 import MainOptions from "./components/MainOptions";
 import AIChatPanel from "./components/AIChatPanel";
+import ComponentToCodePanel from "./components/ComponentToCodePanel";
 import {
   convertMermaidToFlow,
   generateMermaidFromImage,
@@ -43,6 +45,8 @@ function App() {
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [saveName, setSaveName] = useState('');
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [isFromSpec, setIsFromSpec] = useState(false);
+  const [showComponentToCodePanel, setShowComponentToCodePanel] = useState(false);
 
   const interactiveSectionRef = useRef(null);
 
@@ -166,6 +170,7 @@ function App() {
     setSelectedEdge(null);
     setNodes([]);
     setEdges([]);
+    setIsFromSpec(false);
   };
 
   const handleSaveDiagram = () => {
@@ -238,6 +243,32 @@ function App() {
     if (confirm('Are you sure you want to delete this diagram?')) {
       setSavedDiagrams(prev => prev.filter(d => d.id !== diagramId));
     }
+  };
+
+  const handleGenerateFromSpec = (result) => {
+    if (!result || !result.nodes) return;
+    
+    setGraphData(result);
+    setNodes(result.nodes);
+    setEdges((result.edges || []).map(edge => ({
+      ...edge,
+      type: "straight"
+    })));
+    setMermaidCode(null);
+    setUploadedImageUrl(null);
+    setSelectedNode(null);
+    setSelectedEdge(null);
+    setIsFromSpec(true);
+
+    // Apply layout after a short delay
+    setTimeout(() => {
+      applyLayout('TB');
+    }, 100);
+
+    // Scroll to interactive section
+    setTimeout(() => {
+      interactiveSectionRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, 150);
   };
 
   const handleNodeClick = (node) => {
@@ -668,6 +699,28 @@ function App() {
                   Load ({savedDiagrams.length})
                 </button>
                 <button
+                  onClick={() => setShowComponentToCodePanel(true)}
+                  disabled={nodes.length === 0}
+                  className="group flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{
+                    backgroundColor: "var(--accent-amber)",
+                    color: "white",
+                    border: "1px solid var(--accent-amber)",
+                  }}
+                  onMouseEnter={(e) => {
+                    if (nodes.length > 0) {
+                      e.currentTarget.style.opacity = "0.9";
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.opacity = "1";
+                  }}
+                  title="Generate code from components"
+                >
+                  <Code2 className="w-4 h-4" />
+                  To Code
+                </button>
+                <button
                   onClick={handleReset}
                   className="group flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all"
                   style={{
@@ -734,145 +787,148 @@ function App() {
               savedDiagrams={savedDiagrams}
               onLoadDiagram={handleLoadDiagram}
               onDeleteDiagram={handleDeleteDiagram}
+              onGenerateFromSpec={handleGenerateFromSpec}
             />
           </div>
         ) : (
           <div className="flex flex-col p-6 gap-6 max-w-[1920px] mx-auto">
-            {/* Row 1: Source Materials */}
-            <div className="flex flex-col lg:flex-row gap-6 h-[600px]">
-              {/* Top Left: Original Image (35%) */}
-              <div
-                className="lg:w-[35%] flex flex-col rounded-xl overflow-hidden"
-                style={{
-                  border: "1px solid var(--border-secondary)",
-                  backgroundColor: "var(--bg-secondary)",
-                }}
-              >
+            {/* Row 1: Source Materials - Only show when NOT from spec */}
+            {!isFromSpec && (
+              <div className="flex flex-col lg:flex-row gap-6 h-[600px]">
+                {/* Top Left: Original Image (35%) */}
                 <div
-                  className="px-5 py-3 flex items-center gap-2.5"
+                  className="lg:w-[35%] flex flex-col rounded-xl overflow-hidden"
                   style={{
-                    borderBottom: "1px solid var(--border-secondary)",
-                    backgroundColor: "var(--bg-tertiary)",
+                    border: "1px solid var(--border-secondary)",
+                    backgroundColor: "var(--bg-secondary)",
                   }}
                 >
-                  <ImageIcon
-                    className="w-4 h-4"
-                    style={{ color: "var(--accent-blue)" }}
-                  />
-                  <h3
-                    className="text-xs font-semibold uppercase tracking-wider"
-                    style={{ color: "var(--text-secondary)" }}
+                  <div
+                    className="px-5 py-3 flex items-center gap-2.5"
+                    style={{
+                      borderBottom: "1px solid var(--border-secondary)",
+                      backgroundColor: "var(--bg-tertiary)",
+                    }}
                   >
-                    Original Design
-                  </h3>
-                </div>
-                <div
-                  className="flex-1 p-6 overflow-auto flex items-center justify-center"
-                  style={{ backgroundColor: "var(--bg-overlay)" }}
-                >
-                  {uploadedImageUrl ? (
-                    <img
-                      src={uploadedImageUrl}
-                      alt="Original System Design"
-                      className="max-w-full max-h-full object-contain rounded-lg"
-                      style={{
-                        boxShadow: "var(--shadow-xl)",
-                        border: "1px solid var(--border-primary)",
-                      }}
-                    />
-                  ) : (
-                    <div
-                      className="text-sm"
-                      style={{ color: "var(--text-muted)" }}
-                    >
-                      No image loaded
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Top Right: Mermaid Diagram (65%) */}
-              <div
-                className="lg:w-[65%] flex flex-col rounded-xl overflow-hidden"
-                style={{
-                  border: "1px solid var(--border-secondary)",
-                  backgroundColor: "var(--bg-secondary)",
-                }}
-              >
-                <div
-                  className="px-5 py-3 flex items-center justify-between"
-                  style={{
-                    borderBottom: "1px solid var(--border-secondary)",
-                    backgroundColor: "var(--bg-tertiary)",
-                  }}
-                >
-                  <div className="flex items-center gap-2.5">
-                    <Code
+                    <ImageIcon
                       className="w-4 h-4"
-                      style={{ color: "var(--accent-purple)" }}
+                      style={{ color: "var(--accent-blue)" }}
                     />
                     <h3
                       className="text-xs font-semibold uppercase tracking-wider"
                       style={{ color: "var(--text-secondary)" }}
                     >
-                      Mermaid Definition
+                      Original Design
                     </h3>
                   </div>
-                  {mermaidCode && !graphData && (
-                    <button
-                      onClick={handleConvertToInteractive}
-                      disabled={isConverting}
-                      className="group flex items-center gap-2 px-4 py-1.5 rounded-md text-white text-xs font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                      style={{
-                        backgroundColor: "var(--accent-blue)",
-                        boxShadow: "var(--accent-blue-glow)",
-                      }}
-                    >
-                      {isConverting
-                        ? "Converting..."
-                        : "Convert to Interactive"}
-                      <ArrowDown className="w-3 h-3 transition-transform group-hover:translate-y-0.5" />
-                    </button>
-                  )}
-                </div>
-                <div
-                  className="flex-1 p-4 overflow-hidden relative"
-                  style={{ backgroundColor: "var(--bg-primary)" }}
-                >
-                  {mermaidCode ? (
-                    <MermaidDisplay chart={mermaidCode} />
-                  ) : isAnalyzing ? (
-                    <div
-                      className="h-full flex flex-col items-center justify-center gap-3 animate-pulse"
-                      style={{ color: "var(--text-secondary)" }}
-                    >
-                      <div
-                        className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin"
+                  <div
+                    className="flex-1 p-6 overflow-auto flex items-center justify-center"
+                    style={{ backgroundColor: "var(--bg-overlay)" }}
+                  >
+                    {uploadedImageUrl ? (
+                      <img
+                        src={uploadedImageUrl}
+                        alt="Original System Design"
+                        className="max-w-full max-h-full object-contain rounded-lg"
                         style={{
-                          borderColor: "var(--accent-blue)",
-                          borderTopColor: "transparent",
+                          boxShadow: "var(--shadow-xl)",
+                          border: "1px solid var(--border-primary)",
                         }}
                       />
-                      <span className="text-sm">
-                        Generating Mermaid diagram...
-                      </span>
+                    ) : (
+                      <div
+                        className="text-sm"
+                        style={{ color: "var(--text-muted)" }}
+                      >
+                        No image loaded
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Top Right: Mermaid Diagram (65%) */}
+                <div
+                  className="lg:w-[65%] flex flex-col rounded-xl overflow-hidden"
+                  style={{
+                    border: "1px solid var(--border-secondary)",
+                    backgroundColor: "var(--bg-secondary)",
+                  }}
+                >
+                  <div
+                    className="px-5 py-3 flex items-center justify-between"
+                    style={{
+                      borderBottom: "1px solid var(--border-secondary)",
+                      backgroundColor: "var(--bg-tertiary)",
+                    }}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <Code
+                        className="w-4 h-4"
+                        style={{ color: "var(--accent-purple)" }}
+                      />
+                      <h3
+                        className="text-xs font-semibold uppercase tracking-wider"
+                        style={{ color: "var(--text-secondary)" }}
+                      >
+                        Mermaid Definition
+                      </h3>
                     </div>
-                  ) : (
-                    <div
-                      className="h-full flex items-center justify-center text-sm"
-                      style={{ color: "var(--text-muted)" }}
-                    >
-                      Waiting for analysis...
-                    </div>
-                  )}
+                    {mermaidCode && !graphData && (
+                      <button
+                        onClick={handleConvertToInteractive}
+                        disabled={isConverting}
+                        className="group flex items-center gap-2 px-4 py-1.5 rounded-md text-white text-xs font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        style={{
+                          backgroundColor: "var(--accent-blue)",
+                          boxShadow: "var(--accent-blue-glow)",
+                        }}
+                      >
+                        {isConverting
+                          ? "Converting..."
+                          : "Convert to Interactive"}
+                        <ArrowDown className="w-3 h-3 transition-transform group-hover:translate-y-0.5" />
+                      </button>
+                    )}
+                  </div>
+                  <div
+                    className="flex-1 p-4 overflow-hidden relative"
+                    style={{ backgroundColor: "var(--bg-primary)" }}
+                  >
+                    {mermaidCode ? (
+                      <MermaidDisplay chart={mermaidCode} />
+                    ) : isAnalyzing ? (
+                      <div
+                        className="h-full flex flex-col items-center justify-center gap-3 animate-pulse"
+                        style={{ color: "var(--text-secondary)" }}
+                      >
+                        <div
+                          className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin"
+                          style={{
+                            borderColor: "var(--accent-blue)",
+                            borderTopColor: "transparent",
+                          }}
+                        />
+                        <span className="text-sm">
+                          Generating Mermaid diagram...
+                        </span>
+                      </div>
+                    ) : (
+                      <div
+                        className="h-full flex items-center justify-center text-sm"
+                        style={{ color: "var(--text-muted)" }}
+                      >
+                        Waiting for analysis...
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
 
-            {/* Row 2: Interactive Diagram (Full Width) */}
+            {/* Row 2: Interactive Diagram (Full Width) - Taller when from spec */}
             <div
               ref={interactiveSectionRef}
-              className="h-[800px] flex flex-col rounded-xl overflow-hidden"
+              className={`${isFromSpec ? 'h-[calc(100vh-180px)]' : 'h-[800px]'} flex flex-col rounded-xl overflow-hidden`}
               style={{
                 border: "1px solid var(--border-secondary)",
                 backgroundColor: "var(--bg-secondary)",
@@ -1208,6 +1264,15 @@ function App() {
           onApplyActions={handleApplyAIActions}
           isOpen={isChatOpen}
           onToggle={() => setIsChatOpen(!isChatOpen)}
+        />
+      )}
+
+      {/* Component to Code Panel */}
+      {showComponentToCodePanel && (
+        <ComponentToCodePanel
+          nodes={nodes}
+          edges={edges}
+          onClose={() => setShowComponentToCodePanel(false)}
         />
       )}
     </div>
