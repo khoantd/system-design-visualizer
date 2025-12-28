@@ -23,6 +23,8 @@ const DESIGN_PATTERNS = [
     description: 'Data access abstraction layer',
     category: 'structural',
     applicableTo: ['databaseNode', 'serverNode'],
+    // Strongly recommended when database + server are both selected
+    strongMatch: { requires: ['databaseNode', 'serverNode'], minCount: 2 },
   },
   {
     id: 'factory',
@@ -30,6 +32,8 @@ const DESIGN_PATTERNS = [
     description: 'Object creation abstraction',
     category: 'creational',
     applicableTo: ['serverNode', 'clientNode'],
+    // Recommended when multiple servers exist
+    strongMatch: { requires: ['serverNode'], minCount: 2 },
   },
   {
     id: 'singleton',
@@ -37,6 +41,8 @@ const DESIGN_PATTERNS = [
     description: 'Single instance guarantee',
     category: 'creational',
     applicableTo: ['cacheNode', 'databaseNode', 'serverNode'],
+    // Strongly recommended for cache or database connections
+    strongMatch: { requires: ['cacheNode'], minCount: 1 },
   },
   {
     id: 'observer',
@@ -44,6 +50,8 @@ const DESIGN_PATTERNS = [
     description: 'Event-driven communication',
     category: 'behavioral',
     applicableTo: ['serverNode', 'clientNode'],
+    // Recommended when client + server need real-time updates
+    strongMatch: { requires: ['clientNode', 'serverNode'], minCount: 2 },
   },
   {
     id: 'strategy',
@@ -51,6 +59,8 @@ const DESIGN_PATTERNS = [
     description: 'Interchangeable algorithms',
     category: 'behavioral',
     applicableTo: ['serverNode', 'cacheNode'],
+    // Recommended when cache strategies might vary
+    strongMatch: { requires: ['cacheNode', 'serverNode'], minCount: 2 },
   },
   {
     id: 'facade',
@@ -58,13 +68,17 @@ const DESIGN_PATTERNS = [
     description: 'Simplified interface to complex subsystem',
     category: 'structural',
     applicableTo: ['loadBalancerNode', 'serverNode'],
+    // Strongly recommended when load balancer is present
+    strongMatch: { requires: ['loadBalancerNode'], minCount: 1 },
   },
   {
     id: 'adapter',
     label: 'Adapter Pattern',
     description: 'Interface compatibility layer',
     category: 'structural',
-    applicableTo: ['serverNode', 'clientNode'],
+    applicableTo: ['serverNode', 'clientNode', 'databaseNode'],
+    // Recommended for integrating different data sources
+    strongMatch: { requires: ['databaseNode', 'serverNode'], minCount: 2 },
   },
   {
     id: 'decorator',
@@ -72,6 +86,7 @@ const DESIGN_PATTERNS = [
     description: 'Dynamic behavior extension',
     category: 'structural',
     applicableTo: ['serverNode', 'clientNode'],
+    strongMatch: null, // Optional pattern, no strong match
   },
   {
     id: 'command',
@@ -79,6 +94,7 @@ const DESIGN_PATTERNS = [
     description: 'Request encapsulation',
     category: 'behavioral',
     applicableTo: ['serverNode', 'clientNode'],
+    strongMatch: null, // Optional pattern
   },
   {
     id: 'mvc',
@@ -86,8 +102,52 @@ const DESIGN_PATTERNS = [
     description: 'Model-View-Controller separation',
     category: 'architectural',
     applicableTo: ['clientNode', 'serverNode'],
+    // Strongly recommended for client applications
+    strongMatch: { requires: ['clientNode'], minCount: 1 },
+  },
+  {
+    id: 'circuit-breaker',
+    label: 'Circuit Breaker',
+    description: 'Fault tolerance for distributed systems',
+    category: 'behavioral',
+    applicableTo: ['serverNode', 'loadBalancerNode'],
+    // Recommended for distributed systems with multiple servers
+    strongMatch: { requires: ['serverNode', 'loadBalancerNode'], minCount: 2 },
+  },
+  {
+    id: 'cqrs',
+    label: 'CQRS Pattern',
+    description: 'Command Query Responsibility Segregation',
+    category: 'architectural',
+    applicableTo: ['serverNode', 'databaseNode'],
+    // Recommended when multiple databases or read/write separation needed
+    strongMatch: { requires: ['databaseNode'], minCount: 2 },
   },
 ];
+
+// Component combination insights - when NO patterns are recommended
+const SIMPLE_ARCHITECTURE_HINTS = {
+  singleClient: {
+    condition: (types) => types.length === 1 && types.includes('clientNode'),
+    message: 'Simple client-only architecture. Consider adding a server for data persistence.',
+    suggestPatterns: false,
+  },
+  simpleClientServer: {
+    condition: (types) => types.length === 2 && types.includes('clientNode') && types.includes('serverNode') && !types.includes('databaseNode'),
+    message: 'Basic client-server setup. Design patterns are optional for simple architectures.',
+    suggestPatterns: true,
+  },
+  cacheOnly: {
+    condition: (types) => types.length === 1 && types.includes('cacheNode'),
+    message: 'Standalone cache component. Connect to a server for meaningful patterns.',
+    suggestPatterns: false,
+  },
+  databaseOnly: {
+    condition: (types) => types.length === 1 && types.includes('databaseNode'),
+    message: 'Standalone database. Add a server layer for data access patterns.',
+    suggestPatterns: false,
+  },
+};
 
 const LANGUAGE_OPTIONS = [
   { id: 'typescript', label: 'TypeScript', description: 'Type-safe JavaScript' },
@@ -117,18 +177,78 @@ const ComponentToCodePanel = ({ nodes, edges, onClose }) => {
     return (nodes || []).filter(node => node.type !== 'userNode' && node.type !== 'subflowNode');
   }, [nodes]);
 
-  const suggestedPatterns = useMemo(() => {
-    if (selectedNodes.length === 0) return [];
-    
-    const nodeTypes = selectedNodes.map(nodeId => {
+  // Get unique node types from selected nodes
+  const selectedNodeTypes = useMemo(() => {
+    return selectedNodes.map(nodeId => {
       const node = selectableNodes.find(n => n.id === nodeId);
       return node?.type;
     }).filter(Boolean);
-
-    return DESIGN_PATTERNS.filter(pattern => 
-      pattern.applicableTo.some(type => nodeTypes.includes(type))
-    );
   }, [selectedNodes, selectableNodes]);
+
+  // Get unique types for pattern matching
+  const uniqueSelectedTypes = useMemo(() => {
+    return [...new Set(selectedNodeTypes)];
+  }, [selectedNodeTypes]);
+
+  // Count occurrences of each node type
+  const nodeTypeCounts = useMemo(() => {
+    return selectedNodeTypes.reduce((acc, type) => {
+      acc[type] = (acc[type] || 0) + 1;
+      return acc;
+    }, {});
+  }, [selectedNodeTypes]);
+
+  // Check if architecture is too simple for patterns
+  const architectureHint = useMemo(() => {
+    if (selectedNodes.length === 0) return null;
+    
+    for (const hint of Object.values(SIMPLE_ARCHITECTURE_HINTS)) {
+      if (hint.condition(uniqueSelectedTypes)) {
+        return hint;
+      }
+    }
+    return null;
+  }, [uniqueSelectedTypes, selectedNodes.length]);
+
+  // Calculate pattern recommendations with scores
+  const suggestedPatterns = useMemo(() => {
+    if (selectedNodes.length === 0) return [];
+    
+    // Filter applicable patterns
+    const applicable = DESIGN_PATTERNS.filter(pattern => 
+      pattern.applicableTo.some(type => uniqueSelectedTypes.includes(type))
+    );
+
+    // Calculate recommendation score for each pattern
+    return applicable.map(pattern => {
+      let isRecommended = false;
+      let recommendationReason = '';
+
+      if (pattern.strongMatch) {
+        const { requires, minCount } = pattern.strongMatch;
+        const matchingTypes = requires.filter(type => uniqueSelectedTypes.includes(type));
+        const totalMatchingNodes = requires.reduce((sum, type) => sum + (nodeTypeCounts[type] || 0), 0);
+        
+        // Check if we have enough matching types and nodes
+        if (matchingTypes.length >= Math.min(requires.length, uniqueSelectedTypes.length) && 
+            totalMatchingNodes >= minCount) {
+          isRecommended = true;
+          recommendationReason = `Recommended for ${matchingTypes.map(t => t.replace('Node', '')).join(' + ')} architecture`;
+        }
+      }
+
+      return {
+        ...pattern,
+        isRecommended,
+        recommendationReason,
+      };
+    }).sort((a, b) => {
+      // Sort recommended patterns first
+      if (a.isRecommended && !b.isRecommended) return -1;
+      if (!a.isRecommended && b.isRecommended) return 1;
+      return 0;
+    });
+  }, [selectedNodes.length, uniqueSelectedTypes, nodeTypeCounts]);
 
   const toggleNodeSelection = (nodeId) => {
     setSelectedNodes(prev => 
@@ -401,60 +521,190 @@ const ComponentToCodePanel = ({ nodes, edges, onClose }) => {
                     Select components to see suggested patterns
                   </div>
                 ) : (
-                  <div
-                    className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto p-3 rounded-xl"
-                    style={{
-                      backgroundColor: 'var(--bg-secondary)',
-                      border: '1px solid var(--border-primary)',
-                    }}
-                  >
-                    {suggestedPatterns.map((pattern) => (
-                      <button
-                        key={pattern.id}
-                        onClick={() => togglePatternSelection(pattern.id)}
-                        className="flex items-start gap-2 px-3 py-2 rounded-lg text-left transition-all"
+                  <div className="space-y-3">
+                    {/* Architecture Hint */}
+                    {architectureHint && (
+                      <div
+                        className="px-4 py-3 rounded-xl text-sm flex items-start gap-2"
                         style={{
-                          backgroundColor: selectedPatterns.includes(pattern.id) 
-                            ? 'var(--bg-tertiary)' 
-                            : 'transparent',
-                          border: selectedPatterns.includes(pattern.id)
-                            ? `1px solid ${getCategoryColor(pattern.category)}`
-                            : '1px solid transparent',
+                          backgroundColor: architectureHint.suggestPatterns 
+                            ? 'rgba(16, 185, 129, 0.1)' 
+                            : 'rgba(251, 191, 36, 0.1)',
+                          border: architectureHint.suggestPatterns 
+                            ? '1px solid rgba(16, 185, 129, 0.3)' 
+                            : '1px solid rgba(251, 191, 36, 0.3)',
+                          color: architectureHint.suggestPatterns 
+                            ? 'var(--accent-emerald)' 
+                            : 'var(--accent-amber)',
                         }}
                       >
-                        {selectedPatterns.includes(pattern.id) ? (
-                          <CheckSquare 
-                            className="w-4 h-4 flex-shrink-0 mt-0.5" 
-                            style={{ color: getCategoryColor(pattern.category) }} 
-                          />
-                        ) : (
-                          <Square 
-                            className="w-4 h-4 flex-shrink-0 mt-0.5" 
-                            style={{ color: 'var(--text-muted)' }} 
-                          />
-                        )}
-                        <div className="min-w-0">
-                          <div
-                            className="text-sm font-medium"
-                            style={{ color: 'var(--text-primary)' }}
-                          >
-                            {pattern.label}
-                          </div>
-                          <div
-                            className="text-xs"
-                            style={{ color: 'var(--text-muted)' }}
-                          >
-                            {pattern.description}
-                          </div>
-                          <div
-                            className="text-xs mt-1 capitalize"
-                            style={{ color: getCategoryColor(pattern.category) }}
-                          >
-                            {pattern.category}
-                          </div>
+                        <Sparkles className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                        <span>{architectureHint.message}</span>
+                      </div>
+                    )}
+
+                    {/* Recommended Patterns Section */}
+                    {suggestedPatterns.some(p => p.isRecommended) && (
+                      <div>
+                        <div 
+                          className="text-xs font-medium mb-2 flex items-center gap-1"
+                          style={{ color: 'var(--accent-emerald)' }}
+                        >
+                          <Sparkles className="w-3 h-3" />
+                          Recommended for your architecture
                         </div>
-                      </button>
-                    ))}
+                        <div
+                          className="grid grid-cols-2 gap-2 p-3 rounded-xl"
+                          style={{
+                            backgroundColor: 'rgba(16, 185, 129, 0.05)',
+                            border: '1px solid rgba(16, 185, 129, 0.2)',
+                          }}
+                        >
+                          {suggestedPatterns.filter(p => p.isRecommended).map((pattern) => (
+                            <button
+                              key={pattern.id}
+                              onClick={() => togglePatternSelection(pattern.id)}
+                              className="flex items-start gap-2 px-3 py-2 rounded-lg text-left transition-all"
+                              style={{
+                                backgroundColor: selectedPatterns.includes(pattern.id) 
+                                  ? 'var(--bg-tertiary)' 
+                                  : 'transparent',
+                                border: selectedPatterns.includes(pattern.id)
+                                  ? '1px solid var(--accent-emerald)'
+                                  : '1px solid transparent',
+                              }}
+                            >
+                              {selectedPatterns.includes(pattern.id) ? (
+                                <CheckSquare 
+                                  className="w-4 h-4 flex-shrink-0 mt-0.5" 
+                                  style={{ color: 'var(--accent-emerald)' }} 
+                                />
+                              ) : (
+                                <Square 
+                                  className="w-4 h-4 flex-shrink-0 mt-0.5" 
+                                  style={{ color: 'var(--text-muted)' }} 
+                                />
+                              )}
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-1">
+                                  <span
+                                    className="text-sm font-medium"
+                                    style={{ color: 'var(--text-primary)' }}
+                                  >
+                                    {pattern.label}
+                                  </span>
+                                  <span
+                                    className="text-xs px-1.5 py-0.5 rounded"
+                                    style={{
+                                      backgroundColor: 'var(--accent-emerald)',
+                                      color: 'white',
+                                    }}
+                                  >
+                                    ★
+                                  </span>
+                                </div>
+                                <div
+                                  className="text-xs"
+                                  style={{ color: 'var(--text-muted)' }}
+                                >
+                                  {pattern.description}
+                                </div>
+                                {pattern.recommendationReason && (
+                                  <div
+                                    className="text-xs mt-1"
+                                    style={{ color: 'var(--accent-emerald)' }}
+                                  >
+                                    {pattern.recommendationReason}
+                                  </div>
+                                )}
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Optional Patterns Section */}
+                    {suggestedPatterns.some(p => !p.isRecommended) && (
+                      <div>
+                        <div 
+                          className="text-xs font-medium mb-2"
+                          style={{ color: 'var(--text-muted)' }}
+                        >
+                          Other applicable patterns (optional)
+                        </div>
+                        <div
+                          className="grid grid-cols-2 gap-2 max-h-36 overflow-y-auto p-3 rounded-xl"
+                          style={{
+                            backgroundColor: 'var(--bg-secondary)',
+                            border: '1px solid var(--border-primary)',
+                          }}
+                        >
+                          {suggestedPatterns.filter(p => !p.isRecommended).map((pattern) => (
+                            <button
+                              key={pattern.id}
+                              onClick={() => togglePatternSelection(pattern.id)}
+                              className="flex items-start gap-2 px-3 py-2 rounded-lg text-left transition-all"
+                              style={{
+                                backgroundColor: selectedPatterns.includes(pattern.id) 
+                                  ? 'var(--bg-tertiary)' 
+                                  : 'transparent',
+                                border: selectedPatterns.includes(pattern.id)
+                                  ? `1px solid ${getCategoryColor(pattern.category)}`
+                                  : '1px solid transparent',
+                              }}
+                            >
+                              {selectedPatterns.includes(pattern.id) ? (
+                                <CheckSquare 
+                                  className="w-4 h-4 flex-shrink-0 mt-0.5" 
+                                  style={{ color: getCategoryColor(pattern.category) }} 
+                                />
+                              ) : (
+                                <Square 
+                                  className="w-4 h-4 flex-shrink-0 mt-0.5" 
+                                  style={{ color: 'var(--text-muted)' }} 
+                                />
+                              )}
+                              <div className="min-w-0">
+                                <div
+                                  className="text-sm font-medium"
+                                  style={{ color: 'var(--text-primary)' }}
+                                >
+                                  {pattern.label}
+                                </div>
+                                <div
+                                  className="text-xs"
+                                  style={{ color: 'var(--text-muted)' }}
+                                >
+                                  {pattern.description}
+                                </div>
+                                <div
+                                  className="text-xs mt-1 capitalize"
+                                  style={{ color: getCategoryColor(pattern.category) }}
+                                >
+                                  {pattern.category}
+                                </div>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* No patterns message */}
+                    {suggestedPatterns.length === 0 && (
+                      <div
+                        className="px-4 py-4 rounded-xl text-center text-sm"
+                        style={{
+                          backgroundColor: 'var(--bg-secondary)',
+                          border: '1px solid var(--border-primary)',
+                          color: 'var(--text-muted)',
+                        }}
+                      >
+                        No design patterns applicable for the selected components.
+                        You can still generate code without patterns.
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
