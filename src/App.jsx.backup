@@ -28,14 +28,6 @@ import {
 } from "./services/analysisService";
 import dagre from '@dagrejs/dagre';
 
-// Phase 0: Foundation & Core UX
-import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
-import { CommandPalette } from './components/CommandPalette';
-import { SearchFilter } from './components/SearchFilter';
-
-// Phase 2: Intelligence & Integration
-import { IntegrationPanel } from './components/IntegrationPanel';
-
 function App() {
   const [graphData, setGraphData] = useState(null);
   const [mermaidCode, setMermaidCode] = useState(null);
@@ -55,10 +47,6 @@ function App() {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isFromSpec, setIsFromSpec] = useState(false);
   const [showComponentToCodePanel, setShowComponentToCodePanel] = useState(false);
-  const [showIntegrationPanel, setShowIntegrationPanel] = useState(false);
-
-  // Enable Phase 0 keyboard shortcuts (Cmd+Z, Cmd+K, Delete, Arrow keys, etc.)
-  useKeyboardShortcuts(true);
 
   const interactiveSectionRef = useRef(null);
 
@@ -687,20 +675,6 @@ function App() {
                   <Save className="w-4 h-4" />
                   Save
                 </button>
-
-              {/* Phase 2: Integration Panel Toggle */}
-              <button
-                onClick={() => setShowIntegrationPanel(!showIntegrationPanel)}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg transition-colors"
-                style={{
-                  backgroundColor: showIntegrationPanel ? 'var(--accent-blue)' : 'var(--interactive-bg)',
-                  color: showIntegrationPanel ? 'white' : 'var(--text-primary)',
-                }}
-                title="Open Integrations (Repository, Observability, Cost, AI, IaC)"
-              >
-                <Code2 className="w-4 h-4" />
-                Integrations
-              </button>
                 <button
                   onClick={() => setShowSavedDiagrams(!showSavedDiagrams)}
                   className="group flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all"
@@ -1301,14 +1275,7 @@ function App() {
           onClose={() => setShowComponentToCodePanel(false)}
         />
       )}
-    
-      {/* Phase 0: Command Palette (Cmd+K) */}
-      <CommandPalette />
-
-      {/* Phase 2: Integration Panel */}
-      {showIntegrationPanel && <IntegrationPanel />}
-
-</div>
+    </div>
   );
 }
 
