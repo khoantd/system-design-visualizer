@@ -2,7 +2,7 @@ import { memo, useState } from "react";
 import { Handle, Position, NodeResizer } from "reactflow";
 import { Box } from "lucide-react";
 
-const SubflowNode = memo(({ id, data, selected }) => {
+const SubflowNode = memo(({ data, selected }) => {
   const [isHovered, setIsHovered] = useState(false);
 
   return (
@@ -14,15 +14,15 @@ const SubflowNode = memo(({ id, data, selected }) => {
         lineClassName="!border-blue-500"
         handleClassName="!w-3 !h-3 !bg-blue-500 !border-2 !border-white !rounded"
       />
-      
+
       <div
         className="w-full h-full rounded-xl border-2 border-dashed relative pointer-events-none"
         style={{
-          backgroundColor: selected 
-            ? "rgba(59, 130, 246, 0.08)" 
+          backgroundColor: selected
+            ? "rgba(59, 130, 246, 0.08)"
             : "rgba(100, 116, 139, 0.05)",
-          borderColor: selected 
-            ? "var(--accent-blue)" 
+          borderColor: selected
+            ? "var(--accent-blue)"
             : "var(--border-secondary)",
           minWidth: 200,
           minHeight: 150,
@@ -44,15 +44,15 @@ const SubflowNode = memo(({ id, data, selected }) => {
         <div
           className="absolute top-0 left-0 right-0 px-3 py-2 rounded-t-xl flex items-center gap-2 cursor-grab pointer-events-auto"
           style={{
-            backgroundColor: selected 
-              ? "rgba(59, 130, 246, 0.15)" 
+            backgroundColor: selected
+              ? "rgba(59, 130, 246, 0.15)"
               : "rgba(100, 116, 139, 0.1)",
             borderBottom: "1px dashed var(--border-secondary)",
           }}
         >
-          <Box 
-            className="w-4 h-4" 
-            style={{ color: selected ? "var(--accent-blue)" : "var(--text-secondary)" }} 
+          <Box
+            className="w-4 h-4"
+            style={{ color: selected ? "var(--accent-blue)" : "var(--text-secondary)" }}
           />
           <span
             className="text-sm font-semibold"

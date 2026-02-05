@@ -77,7 +77,7 @@ function App() {
   // Save diagrams to localStorage whenever they change
   // Use a ref to track if initial load has completed to avoid overwriting on mount
   const hasLoadedRef = useRef(false);
-  
+
   useEffect(() => {
     // Skip the first render to avoid overwriting localStorage before loading
     if (!hasLoadedRef.current) {
@@ -116,38 +116,38 @@ function App() {
       console.log("App: convertMermaidToFlow returned:", data);
       console.log("App: nodes count:", data?.nodes?.length || 0);
       console.log("App: edges count:", data?.edges?.length || 0);
-      
+
       if (!data || (!data.nodes && !data.edges)) {
         console.error("App: Invalid data structure returned:", data);
         alert("Failed to generate interactive visualization. Invalid data structure.");
         return;
       }
-      
+
       setGraphData(data);
       // Ensure all nodes have a position property and an ID
       const validatedNodes = (data.nodes || []).map((node, index) => {
         const validatedNode = { ...node };
-        
+
         // Ensure node has an ID (required by React Flow)
         if (!validatedNode.id) {
           validatedNode.id = `node-${index}-${Date.now()}`;
         }
-        
+
         // Ensure node has a valid position
         if (!validatedNode.position || typeof validatedNode.position.x !== 'number' || typeof validatedNode.position.y !== 'number') {
           validatedNode.position = { x: 250 + (index % 3) * 200, y: 100 + Math.floor(index / 3) * 150 };
         }
-        
+
         // Ensure node has a type (default to serverNode if missing)
         if (!validatedNode.type) {
           validatedNode.type = 'serverNode';
         }
-        
+
         // Ensure node has data object
         if (!validatedNode.data) {
           validatedNode.data = { label: `Node ${index + 1}`, description: '', tech: '' };
         }
-        
+
         return validatedNode;
       });
       console.log("App: validatedNodes count:", validatedNodes.length);
@@ -216,7 +216,7 @@ function App() {
     setSaveName('');
   };
 
-  
+
   const handleLoadDiagram = (diagram) => {
     // Ensure proper zIndex for subflows and child nodes when loading
     const loadedNodes = (diagram.nodes || []).map(node => {
@@ -236,7 +236,7 @@ function App() {
     setGraphData({ nodes: diagram.nodes, edges: diagram.edges });
     setSelectedNode(null);
     setSelectedEdge(null);
-    
+
     // Update edge types to match the loaded connection line type
     const loadedConnectionType = diagram.connectionLineType || 'straight';
     const updatedEdges = (diagram.edges || []).map(edge => ({
@@ -244,7 +244,7 @@ function App() {
       type: loadedConnectionType
     }));
     setEdges(updatedEdges);
-    
+
     // Scroll to interactive section
     setTimeout(() => {
       interactiveSectionRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -259,7 +259,7 @@ function App() {
 
   const handleGenerateFromSpec = (result) => {
     if (!result || !result.nodes) return;
-    
+
     setGraphData(result);
     setNodes(result.nodes);
     setEdges((result.edges || []).map(edge => ({
@@ -333,7 +333,7 @@ function App() {
 
   const handleDelete = useCallback((item) => {
     if (!item?.id) return;
-    
+
     // Use functional updates to check against current state
     setNodes((prevNodes) => {
       const nodeExists = prevNodes.find((n) => n.id === item.id);
@@ -349,7 +349,7 @@ function App() {
       }
       return prevNodes;
     });
-    
+
     setEdges((prevEdges) => {
       const edgeExists = prevEdges.find((e) => e.id === item.id);
       if (edgeExists) {
@@ -366,15 +366,15 @@ function App() {
       // Handle custom 'replace' type for node updates (e.g., adding to subflow)
       const replaceChanges = changes.filter(c => c.type === 'replace');
       const standardChanges = changes.filter(c => c.type !== 'replace');
-      
+
       setNodes((nds) => {
         let newNodes = nds;
-        
+
         // Apply standard changes
         if (standardChanges.length > 0) {
           newNodes = applyNodeChanges(standardChanges, newNodes);
         }
-        
+
         // Apply replace changes (update entire node)
         if (replaceChanges.length > 0) {
           newNodes = newNodes.map(node => {
@@ -382,7 +382,7 @@ function App() {
             return replacement ? replacement.item : node;
           });
         }
-        
+
         return newNodes;
       });
     },
@@ -394,15 +394,15 @@ function App() {
       // Handle custom 'replace' type for edge updates
       const replaceChanges = changes.filter(c => c.type === 'replace');
       const standardChanges = changes.filter(c => c.type !== 'replace');
-      
+
       setEdges((eds) => {
         let newEdges = eds;
-        
+
         // Apply standard changes
         if (standardChanges.length > 0) {
           newEdges = applyEdgeChanges(standardChanges, newEdges);
         }
-        
+
         // Apply replace changes (update entire edge)
         if (replaceChanges.length > 0) {
           newEdges = newEdges.map(edge => {
@@ -410,7 +410,7 @@ function App() {
             return replacement ? replacement.item : edge;
           });
         }
-        
+
         return newEdges;
       });
     },
@@ -420,12 +420,12 @@ function App() {
   // Layout functions using Dagre
   const getLayoutedElements = useCallback((nodes, edges, direction = 'LR') => {
     const dagreGraph = new dagre.graphlib.Graph().setDefaultEdgeLabel(() => ({}));
-    
+
     const nodeWidth = 200;
     const nodeHeight = 120;
-    
+
     const isHorizontal = direction === 'LR';
-    dagreGraph.setGraph({ 
+    dagreGraph.setGraph({
       rankdir: direction,
       nodesep: 100,
       ranksep: 150,
@@ -509,13 +509,13 @@ function App() {
             console.warn(`Invalid node type "${nodeType}", falling back to serverNode`);
             nodeType = 'serverNode';
           }
-          
+
           const newNode = {
             id: `ai-node-${Date.now()}-${index}-${Math.random().toString(36).substr(2, 9)}`,
             type: nodeType,
-            position: { 
-              x: 250 + (index % 3) * 250, 
-              y: 100 + Math.floor(index / 3) * 200 
+            position: {
+              x: 250 + (index % 3) * 250,
+              y: 100 + Math.floor(index / 3) * 200
             },
             data: {
               label: action.label || 'New Node',
@@ -563,12 +563,12 @@ function App() {
     // Apply all node changes in a single update
     setNodes((prevNodes) => {
       let newNodes = [...prevNodes];
-      
+
       // Remove nodes
       if (nodeIdsToRemove.length > 0) {
         newNodes = newNodes.filter((n) => !nodeIdsToRemove.includes(n.id));
       }
-      
+
       // Update nodes
       if (Object.keys(nodeUpdates).length > 0) {
         newNodes = newNodes.map((n) => {
@@ -584,12 +584,12 @@ function App() {
           return n;
         });
       }
-      
+
       // Add new nodes
       if (nodesToAdd.length > 0) {
         newNodes = [...newNodes, ...nodesToAdd];
       }
-      
+
       console.log('AI Actions - Updated nodes:', newNodes.length, 'Added:', nodesToAdd.length);
       return newNodes;
     });
@@ -597,21 +597,21 @@ function App() {
     // Apply all edge changes in a single update
     setEdges((prevEdges) => {
       let newEdges = [...prevEdges];
-      
+
       // Remove edges (including edges connected to removed nodes)
       if (edgeIdsToRemove.length > 0 || nodeIdsToRemove.length > 0) {
-        newEdges = newEdges.filter((e) => 
+        newEdges = newEdges.filter((e) =>
           !edgeIdsToRemove.includes(e.id) &&
           !nodeIdsToRemove.includes(e.source) &&
           !nodeIdsToRemove.includes(e.target)
         );
       }
-      
+
       // Add new edges
       if (edgesToAdd.length > 0) {
         newEdges = [...newEdges, ...edgesToAdd];
       }
-      
+
       return newEdges;
     });
 
@@ -687,20 +687,26 @@ function App() {
                   <Save className="w-4 h-4" />
                   Save
                 </button>
+              </>
+            )}
 
-              {/* Phase 2: Integration Panel Toggle */}
-              <button
-                onClick={() => setShowIntegrationPanel(!showIntegrationPanel)}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg transition-colors"
-                style={{
-                  backgroundColor: showIntegrationPanel ? 'var(--accent-blue)' : 'var(--interactive-bg)',
-                  color: showIntegrationPanel ? 'white' : 'var(--text-primary)',
-                }}
-                title="Open Integrations (Repository, Observability, Cost, AI, IaC)"
-              >
-                <Code2 className="w-4 h-4" />
-                Integrations
-              </button>
+            {/* Phase 2: Integration Panel Toggle - Always visible */}
+            <button
+              onClick={() => setShowIntegrationPanel(!showIntegrationPanel)}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg transition-colors text-sm font-medium"
+              style={{
+                backgroundColor: showIntegrationPanel ? 'var(--accent-blue)' : 'var(--interactive-bg)',
+                color: showIntegrationPanel ? 'white' : 'var(--text-primary)',
+                border: "1px solid var(--border-primary)",
+              }}
+              title="Open Integrations (Repository, Observability, Cost, AI, IaC)"
+            >
+              <Code2 className="w-4 h-4" />
+              Integrations
+            </button>
+
+            {showDashboard && (
+              <>
                 <button
                   onClick={() => setShowSavedDiagrams(!showSavedDiagrams)}
                   className="group flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all"
@@ -979,7 +985,7 @@ function App() {
                     Interactive Visualization
                   </h3>
                 </div>
-                
+
                 {/* Layout Controls */}
                 {(graphData || nodes.length > 0) && (
                   <div className="flex items-center gap-2">
@@ -1280,7 +1286,7 @@ function App() {
           </div>
         )}
 
-        </main>
+      </main>
 
       {/* AI Chat Panel */}
       {(graphData || nodes.length > 0) && (
@@ -1301,14 +1307,14 @@ function App() {
           onClose={() => setShowComponentToCodePanel(false)}
         />
       )}
-    
+
       {/* Phase 0: Command Palette (Cmd+K) */}
       <CommandPalette />
 
       {/* Phase 2: Integration Panel */}
-      {showIntegrationPanel && <IntegrationPanel />}
+      {showIntegrationPanel && <IntegrationPanel onClose={() => setShowIntegrationPanel(false)} />}
 
-</div>
+    </div>
   );
 }
 

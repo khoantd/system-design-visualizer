@@ -32,8 +32,6 @@ const SystemDiagram = ({
   onEdgesChange,
   onNodeClick,
   onEdgeClick,
-  selectedNode,
-  selectedEdge,
   onConnectionLineTypeChange,
   connectionLineType = ConnectionLineType.Straight,
 }) => {
@@ -54,7 +52,7 @@ const SystemDiagram = ({
       isFirstRender.current = false;
       return;
     }
-    
+
     // Update all edges with the new connection line type
     if (edges.length > 0) {
       const edgeType = getEdgeType(connectionLineType);
@@ -93,7 +91,7 @@ const SystemDiagram = ({
   const onConnect = useCallback(
     (params) => {
       const edgeType = getEdgeType(connectionLineType);
-      
+
       const newEdge = {
         ...params,
         id: nanoid(),
@@ -141,7 +139,7 @@ const SystemDiagram = ({
 
       // Get viewport to calculate center position
       const viewport = reactFlowInstanceRef.current.getViewport();
-      
+
       // Calculate center of visible viewport in flow coordinates
       const centerX = -viewport.x / viewport.zoom;
       const centerY = -viewport.y / viewport.zoom;
@@ -191,19 +189,19 @@ const SystemDiagram = ({
   // Handle node drag stop to detect if node was dropped inside a subflow
   const handleNodeDragStop = useCallback(
     (event, draggedNode) => {
-      console.log('[handleNodeDragStop] Called', { 
-        nodeId: draggedNode.id, 
+      console.log('[handleNodeDragStop] Called', {
+        nodeId: draggedNode.id,
         nodeType: draggedNode.type,
         position: draggedNode.position,
-        parentNode: draggedNode.parentNode 
+        parentNode: draggedNode.parentNode
       });
-      
+
       // Skip if the dragged node is a subflow itself
       if (draggedNode.type === 'subflowNode') {
         console.log('[handleNodeDragStop] Skipping - is subflow');
         return;
       }
-      
+
       // Skip if node already has a parent (is already inside a subflow)
       if (draggedNode.parentNode) {
         console.log('[handleNodeDragStop] Skipping - already has parent');
@@ -212,24 +210,24 @@ const SystemDiagram = ({
 
       // Use ref to get current nodes (avoid stale closure)
       const currentNodes = nodesRef.current;
-      
+
       // Find all subflow nodes
       const subflowNodes = currentNodes.filter(n => n.type === 'subflowNode' && n.id !== draggedNode.id);
       console.log('[handleNodeDragStop] Found subflows:', subflowNodes.length);
-      
+
       // Check if the dragged node is inside any subflow
       for (const subflow of subflowNodes) {
         const subflowWidth = subflow.style?.width || 300;
         const subflowHeight = subflow.style?.height || 200;
-        
+
         console.log('[handleNodeDragStop] Checking subflow', {
           subflowId: subflow.id,
           subflowPos: subflow.position,
           subflowSize: { width: subflowWidth, height: subflowHeight },
           draggedPos: draggedNode.position
         });
-        
-        const isInsideSubflow = 
+
+        const isInsideSubflow =
           draggedNode.position.x >= subflow.position.x &&
           draggedNode.position.x <= subflow.position.x + subflowWidth &&
           draggedNode.position.y >= subflow.position.y &&
@@ -294,7 +292,7 @@ const SystemDiagram = ({
       >
         <Background color={bgColor} gap={20} />
         <Controls />
-        
+
         {/* Connection Line Type Selector */}
         <div
           className="absolute top-4 right-14 flex items-center gap-2 px-3 py-2 rounded-lg shadow-lg z-10"

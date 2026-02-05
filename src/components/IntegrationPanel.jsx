@@ -20,7 +20,7 @@ import {
   Shield,
 } from 'lucide-react';
 
-export const IntegrationPanel = () => {
+export const IntegrationPanel = ({ onClose }) => {
   const [activeTab, setActiveTab] = useState('repository');
 
   const tabs = [
@@ -48,8 +48,10 @@ export const IntegrationPanel = () => {
           Integrations
         </h2>
         <button
+          onClick={onClose}
           className="p-1 rounded hover:bg-opacity-10"
           style={{ color: 'var(--text-secondary)' }}
+          title="Close Integrations"
         >
           <ChevronRight className="w-5 h-5" />
         </button>
@@ -71,9 +73,8 @@ export const IntegrationPanel = () => {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-3 py-2 rounded transition-colors text-sm whitespace-nowrap ${
-                isActive ? 'ring-1' : ''
-              }`}
+              className={`flex items-center gap-2 px-3 py-2 rounded transition-colors text-sm whitespace-nowrap ${isActive ? 'ring-1' : ''
+                }`}
               style={{
                 backgroundColor: isActive ? 'var(--interactive-active)' : 'transparent',
                 color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
