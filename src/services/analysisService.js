@@ -80,50 +80,91 @@ Technology Stack:
 
 Return ONLY a valid JSON object (no markdown formatting) with this structure:
 {
-  "nodes": [
-    { 
-      "id": "unique-string-id", 
-      "type": "one of: clientNode, serverNode, databaseNode, loadBalancerNode, cacheNode, userNode, subflowNode", 
-      "position": { "x": number, "y": number }, 
-      "data": { 
-        "label": "Component Name", 
-        "description": "C4 component description explaining responsibility", 
-        "tech": "Specific technologies used" 
-      }
-    }
-  ],
-  "edges": [
-    { "id": "unique-edge-id", "source": "sourceNodeId", "target": "targetNodeId", "animated": true, "label": "interaction description (e.g., 'REST API', 'WebSocket', 'SQL')" }
-  ]
+  "nodes": [...],
+  "edges": [...]
 }
 
-C4 Component Guidelines:
-1. Use "userNode" for actors/users
-2. Use "clientNode" for frontend components (UI components, pages, state management)
-3. Use "serverNode" for backend components (controllers, services, APIs, workers)
-4. Use "databaseNode" for data stores (databases, file storage)
-5. Use "cacheNode" for caching layers (Redis, in-memory cache)
-6. Use "loadBalancerNode" for API gateways, reverse proxies
-7. Use "subflowNode" for grouping related components (containers)
+## Node Types
+- "userNode" – actors/users
+- "clientNode" – frontend components (UI components, pages, state management)
+- "serverNode" – backend components (controllers, services, APIs, workers)
+- "databaseNode" – data stores (databases, file storage)
+- "cacheNode" – caching layers (Redis, in-memory cache)
+- "loadBalancerNode" – API gateways, reverse proxies
+- "subflowNode" – invisible grouping container for related components
 
-Component Naming:
-- Frontend: Use names like "Auth UI", "Dashboard Page", "State Store", "API Client"
-- Backend: Use names like "Auth Controller", "User Service", "Order Repository", "Message Queue"
+## Subflow (Grouping) Rules — CRITICAL
+Always group related components using subflowNode containers. Create at minimum:
+- A "Frontend Layer" subflow containing all clientNode components
+- A "Backend Services" subflow containing all serverNode components
+- A "Data Layer" subflow containing all databaseNode and cacheNode components
 
-Position Layout:
-- Users at top (y: 0-50)
-- Frontend components (y: 150-300)
-- API Gateway/Load Balancer (y: 400)
-- Backend services (y: 500-700)
-- Databases and caches at bottom (y: 800-900)
-- Spread horizontally (x: 50-800) to avoid overlap
+A subflowNode MUST appear BEFORE its children in the nodes array.
 
-Create a comprehensive component diagram that shows:
-1. All major UI components based on the specification
+Child nodes inside a subflow MUST include ALL of these:
+  - "parentNode": "<subflow-id>"   ← the id of the parent subflowNode
+  - "extent": "parent"             ← constrains node to parent bounds
+  - "zIndex": 1000                 ← renders on top of the container
+  - "position": coordinates relative to the subflow's top-left corner (NOT absolute canvas position)
+
+A subflowNode itself MUST include:
+  - "zIndex": -1
+  - "style": { "width": <number>, "height": <number> }  ← sized to fit all children
+
+## Subflow Sizing
+- Width: (number of children) × 190 + 60 padding
+- Height: 160 per row + 100 header/footer padding
+- Example: 3 children in one row → width = 3 × 190 + 60 = 630, height = 260
+
+## Example subflow with children
+{
+  "id": "frontend-group",
+  "type": "subflowNode",
+  "position": { "x": 50, "y": 130 },
+  "style": { "width": 630, "height": 260 },
+  "zIndex": -1,
+  "data": { "label": "Frontend Layer", "description": "Browser-side components", "tech": "" }
+},
+{
+  "id": "spa",
+  "type": "clientNode",
+  "position": { "x": 30, "y": 80 },
+  "parentNode": "frontend-group",
+  "extent": "parent",
+  "zIndex": 1000,
+  "data": { "label": "SPA", "description": "Single page application", "tech": "React" }
+},
+{
+  "id": "state-store",
+  "type": "clientNode",
+  "position": { "x": 220, "y": 80 },
+  "parentNode": "frontend-group",
+  "extent": "parent",
+  "zIndex": 1000,
+  "data": { "label": "State Store", "description": "Client state management", "tech": "Redux/Zustand" }
+}
+
+## Canvas Layout
+- User node at top (absolute y: 0–50), centered
+- Frontend Layer subflow (absolute y: ~130)
+- API Gateway/Load Balancer between tiers (absolute y: ~450), NOT inside any subflow
+- Backend Services subflow (absolute y: ~540)
+- Data Layer subflow at bottom (absolute y: ~800)
+- Align subflows to x: 50, spread children horizontally inside
+
+## Component Naming
+- Frontend: "Auth UI", "Dashboard Page", "State Store", "API Client"
+- Backend: "Auth Service", "User Service", "Order Service", "Message Queue"
+
+## Edges
+Edges connect any nodes by id (including nodes inside subflows). Use meaningful labels: "REST API", "SQL", "WebSocket", "JWT", "Reads/Writes".
+
+Create a comprehensive diagram that shows:
+1. All major UI components from the specification
 2. Backend services/controllers for each feature
 3. Data access layers/repositories
 4. External integrations if mentioned
-5. Clear data flow between components`
+5. Clear data flow between all components`
                     },
                     {
                         role: "user",
@@ -188,8 +229,22 @@ Create a comprehensive component diagram that shows:
                 validatedNode.style = validatedNode.style || { width: 400, height: 300 };
                 validatedNode.zIndex = -1;
             }
-            
+
             return validatedNode;
+        });
+
+        // Second pass: fix child node properties for nodes inside subflows
+        const subflowIds = new Set(result.nodes.filter(n => n.type === 'subflowNode').map(n => n.id));
+        result.nodes = result.nodes.map(node => {
+            if (node.parentNode) {
+                if (!subflowIds.has(node.parentNode)) {
+                    // Invalid parent reference — strip it
+                    const { parentNode, extent, ...rest } = node;
+                    return rest;
+                }
+                return { ...node, extent: 'parent', zIndex: node.zIndex ?? 1000 };
+            }
+            return node;
         });
 
         // Validate edges
@@ -212,116 +267,177 @@ Create a comprehensive component diagram that shows:
 const getMockC4Components = (frontendTech, backendTech) => {
     const frontendLabel = frontendTech === 'vuejs' ? 'Vue.js' : 'React';
     const backendLabel = backendTech === 'python-fastapi' ? 'FastAPI' : 'Node.js/Express';
-    
+    const stateLabel = frontendTech === 'vuejs' ? 'Pinia' : 'Redux/Zustand';
+
     const nodes = [
+        // ── User (outside all subflows) ──────────────────────────────────────
         {
             id: 'user',
             type: 'userNode',
-            position: { x: 350, y: 0 },
+            position: { x: 340, y: 0 },
             data: {
                 label: 'End User',
                 description: 'User interacting with the web application',
-                tech: 'Web Browser'
+                tech: 'Web Browser',
             },
+        },
+
+        // ── Frontend Layer subflow ────────────────────────────────────────────
+        {
+            id: 'frontend-group',
+            type: 'subflowNode',
+            position: { x: 50, y: 130 },
+            style: { width: 630, height: 230 },
+            zIndex: -1,
+            data: { label: 'Frontend Layer', description: 'Browser-side components', tech: '' },
         },
         {
             id: 'spa',
             type: 'clientNode',
-            position: { x: 100, y: 150 },
+            position: { x: 30, y: 80 },
+            parentNode: 'frontend-group',
+            extent: 'parent',
+            zIndex: 1000,
             data: {
                 label: 'SPA Frontend',
                 description: 'Single Page Application handling user interface',
-                tech: frontendLabel
+                tech: frontendLabel,
             },
         },
         {
             id: 'state-store',
             type: 'clientNode',
-            position: { x: 350, y: 150 },
+            position: { x: 220, y: 80 },
+            parentNode: 'frontend-group',
+            extent: 'parent',
+            zIndex: 1000,
             data: {
                 label: 'State Management',
                 description: 'Client-side state management for application data',
-                tech: frontendTech === 'vuejs' ? 'Pinia' : 'Redux/Zustand'
+                tech: stateLabel,
             },
         },
         {
             id: 'api-client',
             type: 'clientNode',
-            position: { x: 600, y: 150 },
+            position: { x: 410, y: 80 },
+            parentNode: 'frontend-group',
+            extent: 'parent',
+            zIndex: 1000,
             data: {
                 label: 'API Client',
                 description: 'HTTP client for backend communication',
-                tech: 'Axios/Fetch'
+                tech: 'Axios/Fetch',
             },
         },
+
+        // ── API Gateway (between tiers, outside subflows) ─────────────────────
         {
             id: 'api-gateway',
             type: 'loadBalancerNode',
-            position: { x: 350, y: 350 },
+            position: { x: 315, y: 430 },
             data: {
                 label: 'API Gateway',
                 description: 'Entry point for all API requests, handles routing and auth',
-                tech: 'NGINX/Kong'
+                tech: 'NGINX/Kong',
             },
+        },
+
+        // ── Backend Services subflow ──────────────────────────────────────────
+        {
+            id: 'backend-group',
+            type: 'subflowNode',
+            position: { x: 50, y: 540 },
+            style: { width: 630, height: 230 },
+            zIndex: -1,
+            data: { label: 'Backend Services', description: 'Server-side application logic', tech: '' },
         },
         {
             id: 'auth-service',
             type: 'serverNode',
-            position: { x: 100, y: 500 },
+            position: { x: 30, y: 80 },
+            parentNode: 'backend-group',
+            extent: 'parent',
+            zIndex: 1000,
             data: {
                 label: 'Auth Service',
                 description: 'Handles authentication and authorization',
-                tech: backendLabel
+                tech: backendLabel,
             },
         },
         {
             id: 'user-service',
             type: 'serverNode',
-            position: { x: 350, y: 500 },
+            position: { x: 220, y: 80 },
+            parentNode: 'backend-group',
+            extent: 'parent',
+            zIndex: 1000,
             data: {
                 label: 'User Service',
                 description: 'Manages user profiles and preferences',
-                tech: backendLabel
+                tech: backendLabel,
             },
         },
         {
             id: 'business-service',
             type: 'serverNode',
-            position: { x: 600, y: 500 },
+            position: { x: 410, y: 80 },
+            parentNode: 'backend-group',
+            extent: 'parent',
+            zIndex: 1000,
             data: {
                 label: 'Business Service',
                 description: 'Core business logic and operations',
-                tech: backendLabel
+                tech: backendLabel,
             },
+        },
+
+        // ── Data Layer subflow ────────────────────────────────────────────────
+        {
+            id: 'data-group',
+            type: 'subflowNode',
+            position: { x: 50, y: 840 },
+            style: { width: 630, height: 230 },
+            zIndex: -1,
+            data: { label: 'Data Layer', description: 'Persistence and caching', tech: '' },
         },
         {
             id: 'cache',
             type: 'cacheNode',
-            position: { x: 100, y: 700 },
+            position: { x: 30, y: 80 },
+            parentNode: 'data-group',
+            extent: 'parent',
+            zIndex: 1000,
             data: {
                 label: 'Cache Layer',
                 description: 'Caches frequently accessed data',
-                tech: 'Redis'
+                tech: 'Redis',
             },
         },
         {
             id: 'primary-db',
             type: 'databaseNode',
-            position: { x: 350, y: 700 },
+            position: { x: 220, y: 80 },
+            parentNode: 'data-group',
+            extent: 'parent',
+            zIndex: 1000,
             data: {
                 label: 'Primary Database',
                 description: 'Main data store for application data',
-                tech: 'PostgreSQL'
+                tech: 'PostgreSQL',
             },
         },
         {
             id: 'file-storage',
             type: 'databaseNode',
-            position: { x: 600, y: 700 },
+            position: { x: 410, y: 80 },
+            parentNode: 'data-group',
+            extent: 'parent',
+            zIndex: 1000,
             data: {
                 label: 'File Storage',
                 description: 'Stores uploaded files and media',
-                tech: 'S3/MinIO'
+                tech: 'S3/MinIO',
             },
         },
     ];
@@ -426,30 +542,43 @@ const convertToFlowWithOpenAI = async (mermaidCode, apiKey) => {
                     {
                         role: "system",
                         content: `You are a system architecture expert. Convert the provided Mermaid diagram code into a structured graph format for React Flow.
-            
-            Return ONLY a valid JSON object (no markdown formatting) with this structure:
-            {
-              "nodes": [
-                { 
-                  "id": "string", 
-                  "type": "one of: clientNode, serverNode, databaseNode, loadBalancerNode, cacheNode", 
-                  "position": { "x": number, "y": number }, 
-                  "data": { 
-                    "label": "string", 
-                    "description": "brief description of role inferred from context", 
-                    "tech": "inferred technologies" 
-                  } 
-                }
-              ],
-              "edges": [
-                { "id": "string", "source": "nodeId", "target": "nodeId", "animated": true, "label": "optional connection label" }
-              ]
-            }
-            
-            Rules:
-            1. Map Mermaid shapes/names to the most appropriate node type.
-            2. Space out the position coordinates (x, y) so the graph is readable.
-            3. Ensure all source and target IDs in edges exist in the nodes array.`
+
+Return ONLY a valid JSON object (no markdown formatting) with this structure:
+{
+  "nodes": [...],
+  "edges": [...]
+}
+
+## Node Types
+- "clientNode" – browsers, frontends, mobile apps, UI
+- "serverNode" – application servers, APIs, workers, microservices
+- "databaseNode" – databases, persistent storage
+- "loadBalancerNode" – load balancers, API gateways, reverse proxies
+- "cacheNode" – caches, Redis, Memcached
+- "userNode" – human users or external actors
+- "subflowNode" – invisible grouping container for related components
+
+## Grouping with subflowNode
+When the Mermaid diagram contains subgraph blocks or clear logical clusters, represent them as subflowNode containers to improve clarity.
+
+A subflowNode MUST appear BEFORE its children in the nodes array.
+Child nodes inside a subflow MUST include ALL of:
+  - "parentNode": "<subflow-id>"   ← id of the parent subflowNode
+  - "extent": "parent"
+  - "zIndex": 1000
+  - "position": coordinates relative to the subflow's top-left corner (NOT absolute)
+
+A subflowNode itself MUST include:
+  - "zIndex": -1
+  - "style": { "width": <number>, "height": <number> }
+
+Sizing: width = children × 190 + 60, height = rows × 160 + 100
+
+## Layout Rules
+1. Map Mermaid shapes/names to the most appropriate node type.
+2. Space nodes generously (180px+ horizontal, 150px+ vertical between siblings).
+3. Ensure all edge source/target IDs exist in the nodes array.
+4. Use subflows only when there are clear logical groups of 2+ related nodes (e.g., Mermaid subgraph blocks).`
                     },
                     {
                         role: "user",
@@ -494,15 +623,30 @@ const convertToFlowWithOpenAI = async (mermaidCode, apiKey) => {
             result.edges = [];
         }
 
-        // Validate and ensure all nodes have position property
+        // Validate and ensure all nodes have required properties
         if (Array.isArray(result.nodes)) {
             result.nodes = result.nodes.map((node, index) => {
-                if (!node.position || typeof node.position.x !== 'number' || typeof node.position.y !== 'number') {
-                    // Default position if missing or invalid
-                    return {
-                        ...node,
-                        position: { x: 250 + (index % 3) * 200, y: 100 + Math.floor(index / 3) * 150 }
-                    };
+                const validatedNode = { ...node };
+                if (!validatedNode.position || typeof validatedNode.position.x !== 'number' || typeof validatedNode.position.y !== 'number') {
+                    validatedNode.position = { x: 250 + (index % 3) * 200, y: 100 + Math.floor(index / 3) * 150 };
+                }
+                if (validatedNode.type === 'subflowNode') {
+                    validatedNode.style = validatedNode.style || { width: 400, height: 300 };
+                    validatedNode.zIndex = -1;
+                }
+                return validatedNode;
+            });
+
+            // Second pass: fix child node properties for nodes inside subflows
+            const subflowIds = new Set(result.nodes.filter(n => n.type === 'subflowNode').map(n => n.id));
+            result.nodes = result.nodes.map(node => {
+                if (node.parentNode) {
+                    if (!subflowIds.has(node.parentNode)) {
+                        // Invalid parent reference — strip it
+                        const { parentNode, extent, ...rest } = node;
+                        return rest;
+                    }
+                    return { ...node, extent: 'parent', zIndex: node.zIndex ?? 1000 };
                 }
                 return node;
             });

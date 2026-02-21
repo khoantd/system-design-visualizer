@@ -12,6 +12,7 @@ import {
   Save,
   FolderOpen,
   Trash2,
+  Sparkles,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { nanoid } from "nanoid";
@@ -685,24 +686,32 @@ function App() {
                 <button
                   onClick={() => setShowComponentToCodePanel(true)}
                   disabled={nodes.length === 0}
-                  className="group flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="group flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                   style={{
-                    backgroundColor: "var(--accent-amber)",
+                    background: "linear-gradient(135deg, #f59e0b 0%, #ef4444 100%)",
                     color: "white",
-                    border: "1px solid var(--accent-amber)",
+                    border: "1px solid transparent",
+                    boxShadow: nodes.length > 0
+                      ? "0 0 14px rgba(245, 158, 11, 0.4), 0 2px 6px rgba(0,0,0,0.2)"
+                      : "none",
                   }}
                   onMouseEnter={(e) => {
                     if (nodes.length > 0) {
-                      e.currentTarget.style.opacity = "0.9";
+                      e.currentTarget.style.transform = "scale(1.04)";
+                      e.currentTarget.style.boxShadow =
+                        "0 0 22px rgba(245, 158, 11, 0.65), 0 4px 12px rgba(0,0,0,0.25)";
                     }
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.opacity = "1";
+                    e.currentTarget.style.transform = "scale(1)";
+                    e.currentTarget.style.boxShadow = nodes.length > 0
+                      ? "0 0 14px rgba(245, 158, 11, 0.4), 0 2px 6px rgba(0,0,0,0.2)"
+                      : "none";
                   }}
-                  title="Generate code from components"
+                  title="Generate code from selected components"
                 >
-                  <Code2 className="w-4 h-4" />
-                  To Code
+                  <Sparkles className="w-4 h-4" />
+                  Code Gen
                 </button>
                 <button
                   onClick={handleReset}

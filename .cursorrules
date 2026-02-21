@@ -15,25 +15,46 @@ This is an interactive system design visualizer that transforms static system de
 ## Project Structure
 ```
 src/
-├── components/        # React components
-│   ├── CustomNodes.jsx    # React Flow node components (DatabaseNode, ServerNode, etc.)
+├── App.jsx                # Root component; owns nodes/edges state
+├── store/
+│   ├── diagramStore.ts    # Zustand store (undo/redo, persistence, UI state)
+│   ├── types.ts           # TypeScript type definitions
+│   └── ...                # simulationTypes, integrationTypes, etc.
+├── components/            # React components and ReactFlow canvas
+│   ├── CustomNodes.jsx    # React Flow node components (Database, Server, Client, etc.)
+│   ├── SubflowNode.jsx    # Grouping container node
 │   ├── InfoPanel.jsx      # Side panel showing node details
-│   ├── MermaidDisplay.jsx # Mermaid diagram renderer with zoom/copy controls
+│   ├── MermaidDisplay.jsx # Mermaid diagram renderer
 │   ├── SystemDiagram.jsx  # Main React Flow diagram component
-│   ├── ThemeToggle.jsx    # Theme switcher component
-│   └── UploadZone.jsx     # File upload component
+│   ├── CommandPalette.jsx # Cmd+K command palette
+│   ├── AIChatPanel.jsx    # AI chat panel
+│   └── ...                # UploadZone, ThemeToggle, panels, etc.
 ├── config/
 │   └── nodeTypes.js       # Node type registry for React Flow
 ├── contexts/
 │   ├── ThemeContext.jsx   # Theme provider and context implementation
 │   └── ThemeContextDef.js # Theme context type definition
 ├── hooks/
-│   └── useTheme.js        # Custom hook for theme access
+│   ├── useTheme.js        # Custom hook for theme access
+│   ├── useDiagram.ts      # Store-bound diagram helpers
+│   └── useKeyboardShortcuts.ts
 ├── services/
-│   └── analysisService.js # OpenAI API integration and mock data fallback
+│   ├── analysisService.js # All OpenAI API calls (image→Mermaid, Mermaid→Flow, spec→C4, code gen)
+│   ├── chatService.js     # AI chat panel backend
+│   ├── aiCopilotService.ts# Copilot-style suggestions
+│   ├── layoutService.ts   # Dagre auto-layout helpers
+│   ├── exportService.ts   # PNG/SVG/JSON export
+│   ├── importService.ts   # JSON import
+│   ├── costEstimationService.ts
+│   ├── iacGenerationService.ts
+│   ├── observabilityService.ts
+│   ├── repositoryScanner.ts
+│   └── simulationEngine.ts
 └── themes/
     └── index.js           # Theme definitions (dark/light) with CSS custom properties
 ```
+
+For detailed agent guidelines (state systems, shortcuts, conventions), see **AGENTS.md**.
 
 ## Code Style & Conventions
 
@@ -59,16 +80,16 @@ src/
 - Use `.jsx` extension for React components
 
 ### State Management
-- Use React `useState` for local component state
-- Use Context API (`ThemeContext`) for global theme state
-- No external state management library (Redux, Zustand, etc.)
+- **Two parallel state systems** — when modifying diagram state, check which system the target reads from:
+  1. **App.jsx local state** (`useState`) — `nodes`, `edges`, and most UI flags. ReactFlow canvas and InfoPanel consume this.
+  2. **Zustand `diagramStore`** — undo/redo history, `savedDiagrams`, command palette state, selection. Keyboard shortcuts (`useKeyboardShortcuts`) read from the store.
+- Do not introduce a third state system. Use either App.jsx local state or the Zustand store.
+- Use Context API (`ThemeContext`) for global theme state only.
 
 ### API Integration
-- All API calls are in `services/analysisService.js`
-- Support both OpenAI API and mock data fallback
-- Check for `VITE_OPENAI_API_KEY` environment variable
-- Handle errors gracefully with user-friendly messages
-- Use async/await for API calls
+- All AI/OpenAI calls go through `src/services/` (e.g. `analysisService.js`, `chatService.js`). Do not call the OpenAI API directly from components.
+- Primary AI service: `services/analysisService.js` (image→Mermaid, Mermaid→Flow, spec→C4, code gen). When `VITE_OPENAI_API_KEY` is absent, mock data is used.
+- Handle errors gracefully with user-friendly messages; use async/await for API calls.
 
 ## Architecture Patterns
 
@@ -80,20 +101,29 @@ src/
 - All components access theme via `useTheme()` hook or CSS variables
 
 ### Node Types
-- Custom React Flow nodes are defined in `components/CustomNodes.jsx`
-- All nodes extend a `BaseNode` component for consistency
-- Node types are registered in `config/nodeTypes.js`
-- Each node type has a specific icon and color scheme:
+- Custom React Flow nodes are in `components/CustomNodes.jsx`; grouping container in `components/SubflowNode.jsx`
+- All nodes extend a `BaseNode` component for consistency (except SubflowNode)
+- Node types are registered in `config/nodeTypes.js`. **Always validate node types** against this list; invalid types fall back to `serverNode`.
+- Seven semantic types:
   - `databaseNode`: Emerald (Database icon)
   - `serverNode`: Blue (Server icon)
   - `clientNode`: Purple (Smartphone icon)
   - `loadBalancerNode`: Orange (Globe icon)
   - `cacheNode`: Yellow (Layers icon)
+  - `userNode`: Human actors
+  - `subflowNode`: Grouping container — must have `zIndex: -1` and explicit `style: { width, height }` so child nodes can be selected through them.
 
 ### Component Communication
 - Props for parent-to-child communication
 - Callback functions for child-to-parent communication (e.g., `onNodeClick`, `onUpload`)
 - Context API for theme (global state)
+
+### Key Conventions
+- **Edge types**: Use one of `straight`, `smoothstep`, `step`, `default` (Bezier). Default is `straight`.
+- **Node positions**: Validate `position.x` and `position.y` are numbers before passing to ReactFlow. Use a fallback grid (e.g. `250 + (i % 3) * 200, 100 + floor(i/3) * 150`) when missing.
+- **IDs**: Use `nanoid()` for new nodes/edges in the store; legacy pattern in `handleApplyAIActions` (App.jsx) uses `` `ai-node-${Date.now()}-${index}-...` ``.
+- **Persistence**: `diagramStore` uses localStorage key `sdv-diagram-storage`. App.jsx may also persist `savedDiagrams` separately — be aware of both when touching save/load.
+- **Node type strings**: Do not hard-code outside `config/nodeTypes.js` and the `validNodeTypes` arrays in `analysisService.js` and `App.jsx`.
 
 ## Important Patterns
 
@@ -155,10 +185,10 @@ src/
 4. Test all components in new theme
 
 ### Adding a New Node Type
-1. Create node component in `CustomNodes.jsx` using `BaseNode`
-2. Export the component
-3. Register in `config/nodeTypes.js`
-4. Update OpenAI prompt in `convertToFlowWithOpenAI()` to include new type
+1. Create node component in `CustomNodes.jsx` using `BaseNode` (or `SubflowNode.jsx` for grouping)
+2. Export and register in `config/nodeTypes.js`
+3. Add the type to `validNodeTypes` in `analysisService.js` and `App.jsx`
+4. Update OpenAI prompt in `convertToFlowWithOpenAI()` (or equivalent) in `analysisService.js` to include the new type
 5. Test with mock data first
 
 ### Modifying API Prompts
@@ -167,15 +197,28 @@ src/
 - `convertToFlowWithOpenAI`: System prompt for React Flow conversion
 - Always specify JSON response format for Flow conversion
 
+## Keyboard Shortcuts (implemented)
+- `Cmd/Ctrl+K` — Command palette
+- `Cmd/Ctrl+Z` / `Cmd/Ctrl+Shift+Z` — Undo / Redo
+- `Cmd/Ctrl+S` — Save diagram
+- `Cmd/Ctrl+D` — Duplicate selected node
+- `Cmd/Ctrl+C/V` — Copy/paste node via clipboard
+- `Cmd/Ctrl+E` — Export JSON
+- `Delete/Backspace` — Delete selected node or edge
+- `Escape` — Clear selection, close palette
+- Arrow keys — Nudge node (1px; Shift = 10px)
+
 ## Best Practices
-- **Do not mess up with the working pieces** - Enhance things carefully, fix things carefully
-- Preserve existing functionality when adding features
-- Maintain theme consistency across all components
-- Use CSS variables for all theme-dependent values
-- Keep components small and focused
-- Document complex logic with comments
-- Handle edge cases (missing data, API failures, etc.)
-- Clean up resources (object URLs, event listeners, etc.)
+- **Do not mess up with the working pieces** — Enhance and fix things carefully.
+- Preserve existing functionality when adding features.
+- Maintain theme consistency; use CSS variables for all theme-dependent values.
+- Keep components small and focused; document complex logic; handle edge cases; clean up resources (object URLs, event listeners).
+- Do not use `git add -A` or commit without explicit user instruction.
+
+## What to Avoid
+- Do not introduce a third state system (use only App.jsx state or Zustand store).
+- Do not call the OpenAI API directly from components — use `src/services/`.
+- Do not hard-code node type strings outside `config/nodeTypes.js` and the `validNodeTypes` arrays in `analysisService.js` and `App.jsx`.
 
 ## Dependencies to Be Aware Of
 - `reactflow`: Requires `ReactFlowProvider` wrapper
