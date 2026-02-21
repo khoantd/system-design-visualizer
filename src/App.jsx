@@ -14,10 +14,12 @@ import {
   Trash2,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { nanoid } from "nanoid";
 import { ReactFlowProvider, applyNodeChanges, applyEdgeChanges } from "reactflow";
 import InfoPanel from "./components/InfoPanel";
 import MermaidDisplay from "./components/MermaidDisplay";
 import SystemDiagram from "./components/SystemDiagram";
+import ErrorBoundary from "./components/ErrorBoundary";
 import ThemeToggle from "./components/ThemeToggle";
 import MainOptions from "./components/MainOptions";
 import AIChatPanel from "./components/AIChatPanel";
@@ -26,7 +28,7 @@ import {
   convertMermaidToFlow,
   generateMermaidFromImage,
 } from "./services/analysisService";
-import dagre from '@dagrejs/dagre';
+import { applyDagreLayout } from "./services/layoutService";
 
 // Phase 0: Foundation & Core UX
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
@@ -88,17 +90,13 @@ function App() {
   }, [savedDiagrams]);
 
   const handleUpload = async (file) => {
-    console.log("App: handleUpload called with file:", file);
-
     // Create a local URL for the uploaded image to display it
     const objectUrl = URL.createObjectURL(file);
     setUploadedImageUrl(objectUrl);
 
     setIsAnalyzing(true);
     try {
-      console.log("App: calling generateMermaidFromImage...");
       const code = await generateMermaidFromImage(file);
-      console.log("App: generateMermaidFromImage returned:", code);
       setMermaidCode(code);
     } catch (error) {
       console.error("Analysis failed:", error);
@@ -111,11 +109,7 @@ function App() {
     if (!mermaidCode) return;
     setIsConverting(true);
     try {
-      console.log("App: calling convertMermaidToFlow...");
       const data = await convertMermaidToFlow(mermaidCode);
-      console.log("App: convertMermaidToFlow returned:", data);
-      console.log("App: nodes count:", data?.nodes?.length || 0);
-      console.log("App: edges count:", data?.edges?.length || 0);
 
       if (!data || (!data.nodes && !data.edges)) {
         console.error("App: Invalid data structure returned:", data);
@@ -130,7 +124,7 @@ function App() {
 
         // Ensure node has an ID (required by React Flow)
         if (!validatedNode.id) {
-          validatedNode.id = `node-${index}-${Date.now()}`;
+          validatedNode.id = nanoid();
         }
 
         // Ensure node has a valid position
@@ -150,8 +144,6 @@ function App() {
 
         return validatedNode;
       });
-      console.log("App: validatedNodes count:", validatedNodes.length);
-      console.log("App: validatedNodes:", validatedNodes);
       setNodes(validatedNodes);
       setEdges((data.edges || []).map(edge => ({
         ...edge,
@@ -201,7 +193,7 @@ function App() {
     }
 
     const diagramData = {
-      id: Date.now().toString(),
+      id: nanoid(),
       name: saveName.trim(),
       nodes: JSON.parse(JSON.stringify(nodes)),
       edges: JSON.parse(JSON.stringify(edges)),
@@ -417,59 +409,20 @@ function App() {
     []
   );
 
-  // Layout functions using Dagre
-  const getLayoutedElements = useCallback((nodes, edges, direction = 'LR') => {
-    const dagreGraph = new dagre.graphlib.Graph().setDefaultEdgeLabel(() => ({}));
-
-    const nodeWidth = 200;
-    const nodeHeight = 120;
-
-    const isHorizontal = direction === 'LR';
-    dagreGraph.setGraph({
-      rankdir: direction,
-      nodesep: 100,
-      ranksep: 150,
-      marginx: 50,
-      marginy: 50
-    });
-
-    nodes.forEach((node) => {
-      dagreGraph.setNode(node.id, { width: nodeWidth, height: nodeHeight });
-    });
-
-    edges.forEach((edge) => {
-      dagreGraph.setEdge(edge.source, edge.target);
-    });
-
-    dagre.layout(dagreGraph);
-
-    const newNodes = nodes.map((node) => {
-      const nodeWithPosition = dagreGraph.node(node.id);
-      const newNode = {
-        ...node,
-        targetPosition: isHorizontal ? 'left' : 'top',
-        sourcePosition: isHorizontal ? 'right' : 'bottom',
-        // We are shifting the dagre node position (anchor=center center) to the top left
-        // so it matches the React Flow node anchor point (top left).
-        position: {
-          x: nodeWithPosition.x - nodeWidth / 2,
-          y: nodeWithPosition.y - nodeHeight / 2,
-        },
-      };
-
-      return newNode;
-    });
-
-    return { nodes: newNodes, edges };
-  }, []);
-
   const applyLayout = useCallback((direction) => {
     if (nodes.length === 0) return;
 
-    const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(
+    const { nodes: layoutedNodes, edges: layoutedEdges } = applyDagreLayout(
       nodes,
       edges,
-      direction,
+      {
+        direction,
+        nodeWidth: 200,
+        nodeHeight: 120,
+        nodeSep: 100,
+        rankSep: 150,
+        setHandlePositions: true,
+      }
     );
 
     // Update edges to use straight line type
@@ -481,7 +434,7 @@ function App() {
     setNodes([...layoutedNodes]);
     setEdges([...updatedEdges]);
     setLayoutDirection(direction);
-  }, [nodes, edges, getLayoutedElements]);
+  }, [nodes, edges]);
 
   const handleLayoutHorizontal = () => applyLayout('LR');
   const handleLayoutVertical = () => applyLayout('TB');
@@ -511,7 +464,7 @@ function App() {
           }
 
           const newNode = {
-            id: `ai-node-${Date.now()}-${index}-${Math.random().toString(36).substr(2, 9)}`,
+            id: nanoid(),
             type: nodeType,
             position: {
               x: 250 + (index % 3) * 250,
@@ -537,7 +490,7 @@ function App() {
         }
         case 'addEdge': {
           const newEdge = {
-            id: `ai-edge-${Date.now()}-${index}-${Math.random().toString(36).substr(2, 9)}`,
+            id: nanoid(),
             source: action.source,
             target: action.target,
             label: action.label || '',
@@ -590,7 +543,6 @@ function App() {
         newNodes = [...newNodes, ...nodesToAdd];
       }
 
-      console.log('AI Actions - Updated nodes:', newNodes.length, 'Added:', nodesToAdd.length);
       return newNodes;
     });
 
@@ -1029,20 +981,22 @@ function App() {
               >
                 {graphData || nodes.length > 0 ? (
                   <>
-                    <ReactFlowProvider>
-                      <SystemDiagram
-                        nodes={nodes}
-                        edges={edges}
-                        onNodesChange={onNodesChange}
-                        onEdgesChange={onEdgesChange}
-                        onNodeClick={handleNodeClick}
-                        onEdgeClick={handleEdgeClick}
-                        selectedNode={selectedNode}
-                        selectedEdge={selectedEdge}
-                        onConnectionLineTypeChange={setConnectionLineType}
-                        connectionLineType={connectionLineType}
-                      />
-                    </ReactFlowProvider>
+                    <ErrorBoundary>
+                      <ReactFlowProvider>
+                        <SystemDiagram
+                          nodes={nodes}
+                          edges={edges}
+                          onNodesChange={onNodesChange}
+                          onEdgesChange={onEdgesChange}
+                          onNodeClick={handleNodeClick}
+                          onEdgeClick={handleEdgeClick}
+                          selectedNode={selectedNode}
+                          selectedEdge={selectedEdge}
+                          onConnectionLineTypeChange={setConnectionLineType}
+                          connectionLineType={connectionLineType}
+                        />
+                      </ReactFlowProvider>
+                    </ErrorBoundary>
                     <InfoPanel
                       node={selectedNode}
                       edge={selectedEdge}
@@ -1290,13 +1244,15 @@ function App() {
 
       {/* AI Chat Panel */}
       {(graphData || nodes.length > 0) && (
-        <AIChatPanel
-          nodes={nodes}
-          edges={edges}
-          onApplyActions={handleApplyAIActions}
-          isOpen={isChatOpen}
-          onToggle={() => setIsChatOpen(!isChatOpen)}
-        />
+        <ErrorBoundary>
+          <AIChatPanel
+            nodes={nodes}
+            edges={edges}
+            onApplyActions={handleApplyAIActions}
+            isOpen={isChatOpen}
+            onToggle={() => setIsChatOpen(!isChatOpen)}
+          />
+        </ErrorBoundary>
       )}
 
       {/* Component to Code Panel */}

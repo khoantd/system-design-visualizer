@@ -17,6 +17,7 @@ interface LayoutOptions {
   rankSep?: number; // Vertical spacing between ranks
   nodeSep?: number; // Horizontal spacing between nodes
   edgeSep?: number; // Spacing between edges
+  setHandlePositions?: boolean; // Set targetPosition/sourcePosition based on direction
 }
 
 export const applyDagreLayout = (
@@ -31,6 +32,7 @@ export const applyDagreLayout = (
     rankSep = 100,
     nodeSep = 80,
     edgeSep = 10,
+    setHandlePositions = false,
   } = options;
 
   // Create a new directed graph
@@ -66,17 +68,23 @@ export const applyDagreLayout = (
   // Calculate layout
   dagre.layout(graph);
 
+  const isHorizontal = direction === 'LR' || direction === 'RL';
+
   // Apply new positions to nodes
   const layoutedNodes = nodes.map((node) => {
     const nodeWithPosition = graph.node(node.id);
     if (!nodeWithPosition) return node;
 
     // Dagre centers the node at x,y, React Flow uses top-left
-    const width = node.width || node.style?.width || nodeWidth;
-    const height = node.height || node.style?.height || nodeHeight;
+    const width = node.width || (node.style?.width as number | undefined) || nodeWidth;
+    const height = node.height || (node.style?.height as number | undefined) || nodeHeight;
 
     return {
       ...node,
+      ...(setHandlePositions && {
+        targetPosition: isHorizontal ? 'left' : 'top',
+        sourcePosition: isHorizontal ? 'right' : 'bottom',
+      }),
       position: {
         x: nodeWithPosition.x - width / 2,
         y: nodeWithPosition.y - height / 2,

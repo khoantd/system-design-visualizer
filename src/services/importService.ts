@@ -3,7 +3,8 @@
  * Supports: JSON imports with schema versioning and migrations
  */
 
-import type { Diagram, ImportResult } from '../store/types';
+import type { Diagram, ImportResult, LayoutDirection } from '../store/types';
+import type { ConnectionLineType } from 'reactflow';
 import { nanoid } from 'nanoid';
 
 // ============================================================================
@@ -12,11 +13,29 @@ import { nanoid } from 'nanoid';
 
 const CURRENT_SCHEMA_VERSION = 1;
 
+// Loose types for parsing untrusted legacy data
+type RawNode = Record<string, unknown> & {
+  id?: string;
+  type?: string;
+  position?: { x?: number; y?: number };
+  data?: Record<string, unknown>;
+  label?: string;
+  description?: string;
+  tech?: string;
+};
+
+type RawEdge = Record<string, unknown> & {
+  id?: string;
+  source?: string;
+  target?: string;
+  data?: Record<string, unknown>;
+};
+
 interface LegacyDiagramV0 {
   id?: string;
   name: string;
-  nodes: any[];
-  edges: any[];
+  nodes: RawNode[];
+  edges: RawEdge[];
   mermaidCode?: string;
   layoutDirection?: string;
   connectionLineType?: string;
@@ -26,9 +45,9 @@ interface LegacyDiagramV0 {
 /**
  * Migrate a diagram from any version to the current version
  */
-const migrateDiagram = (data: any): { diagram: Diagram; migrations: string[] } => {
+const migrateDiagram = (data: unknown): { diagram: Diagram; migrations: string[] } => {
   const migrations: string[] = [];
-  let diagram = data;
+  let diagram = data as Record<string, unknown>;
 
   // Detect version
   const version = diagram.version || 0;
@@ -70,8 +89,8 @@ const migrateV0ToV1 = (legacyData: LegacyDiagramV0): Diagram => {
       ...edge,
       data: edge.data || {},
     })),
-    layoutDirection: (legacyData.layoutDirection as any) || 'LR',
-    connectionLineType: (legacyData.connectionLineType as any) || 'default',
+    layoutDirection: (legacyData.layoutDirection as LayoutDirection) || 'LR',
+    connectionLineType: (legacyData.connectionLineType as ConnectionLineType) || 'default',
     mermaidCode: legacyData.mermaidCode,
     viewport: { x: 0, y: 0, zoom: 1 },
   };
@@ -248,9 +267,9 @@ export const importFromMermaid = (mermaidCode: string): ImportResult => {
   try {
     // Parse Mermaid syntax (basic implementation)
     const lines = mermaidCode.split('\n').filter((line) => line.trim());
-    const nodes: any[] = [];
-    const edges: any[] = [];
-    const nodeMap = new Map<string, any>();
+    const nodes: RawNode[] = [];
+    const edges: RawEdge[] = [];
+    const nodeMap = new Map<string, RawNode>();
 
     let graphDirection = 'LR';
 
@@ -309,7 +328,7 @@ export const importFromMermaid = (mermaidCode: string): ImportResult => {
       version: CURRENT_SCHEMA_VERSION,
       nodes,
       edges,
-      layoutDirection: graphDirection as any,
+      layoutDirection: graphDirection as LayoutDirection,
       connectionLineType: 'default',
       mermaidCode,
       viewport: { x: 0, y: 0, zoom: 1 },

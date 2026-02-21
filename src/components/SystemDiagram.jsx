@@ -189,51 +189,28 @@ const SystemDiagram = ({
   // Handle node drag stop to detect if node was dropped inside a subflow
   const handleNodeDragStop = useCallback(
     (event, draggedNode) => {
-      console.log('[handleNodeDragStop] Called', {
-        nodeId: draggedNode.id,
-        nodeType: draggedNode.type,
-        position: draggedNode.position,
-        parentNode: draggedNode.parentNode
-      });
-
       // Skip if the dragged node is a subflow itself
-      if (draggedNode.type === 'subflowNode') {
-        console.log('[handleNodeDragStop] Skipping - is subflow');
-        return;
-      }
+      if (draggedNode.type === 'subflowNode') return;
 
       // Skip if node already has a parent (is already inside a subflow)
-      if (draggedNode.parentNode) {
-        console.log('[handleNodeDragStop] Skipping - already has parent');
-        return;
-      }
+      if (draggedNode.parentNode) return;
 
       // Use ref to get current nodes (avoid stale closure)
       const currentNodes = nodesRef.current;
 
       // Find all subflow nodes
       const subflowNodes = currentNodes.filter(n => n.type === 'subflowNode' && n.id !== draggedNode.id);
-      console.log('[handleNodeDragStop] Found subflows:', subflowNodes.length);
 
       // Check if the dragged node is inside any subflow
       for (const subflow of subflowNodes) {
         const subflowWidth = subflow.style?.width || 300;
         const subflowHeight = subflow.style?.height || 200;
 
-        console.log('[handleNodeDragStop] Checking subflow', {
-          subflowId: subflow.id,
-          subflowPos: subflow.position,
-          subflowSize: { width: subflowWidth, height: subflowHeight },
-          draggedPos: draggedNode.position
-        });
-
         const isInsideSubflow =
           draggedNode.position.x >= subflow.position.x &&
           draggedNode.position.x <= subflow.position.x + subflowWidth &&
           draggedNode.position.y >= subflow.position.y &&
           draggedNode.position.y <= subflow.position.y + subflowHeight;
-
-        console.log('[handleNodeDragStop] isInsideSubflow:', isInsideSubflow);
 
         if (isInsideSubflow) {
           // Calculate relative position within the subflow
@@ -250,7 +227,6 @@ const SystemDiagram = ({
             zIndex: 1000, // Ensure child nodes are above all subflow containers
           };
 
-          console.log('[handleNodeDragStop] Updating node to be child of subflow', updatedNode);
           onNodesChange([{ type: 'replace', item: updatedNode }]);
           break;
         }

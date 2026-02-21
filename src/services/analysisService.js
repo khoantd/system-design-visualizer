@@ -1,4 +1,5 @@
 import { MarkerType } from 'reactflow';
+import { nanoid } from 'nanoid';
 
 /**
  * Analyzes an image using OpenAI's GPT-4o to generate a Mermaid diagram.
@@ -9,10 +10,8 @@ export const generateMermaidFromImage = async (imageFile) => {
     const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
 
     if (apiKey) {
-        console.log("analysisService: Using OpenAI API for Mermaid generation");
         return generateMermaidWithOpenAI(imageFile, apiKey);
     } else {
-        console.log("analysisService: No API key found, using mock data");
         return new Promise((resolve) => {
             setTimeout(() => {
                 resolve(getMockMermaid());
@@ -37,10 +36,8 @@ export const generateC4ComponentFromSpec = async (specification, frontendTech, b
     const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
 
     if (apiKey) {
-        console.log("analysisService: Using OpenAI API for C4 Component generation");
         return generateC4WithOpenAI(specification, frontendTech, backendTech, apiKey);
     } else {
-        console.log("analysisService: No API key found, using mock C4 data");
         return new Promise((resolve) => {
             setTimeout(() => {
                 resolve(getMockC4Components(frontendTech, backendTech));
@@ -171,7 +168,7 @@ Create a comprehensive component diagram that shows:
             const validatedNode = { ...node };
             
             if (!validatedNode.id) {
-                validatedNode.id = `c4-node-${index}-${Date.now()}`;
+                validatedNode.id = nanoid();
             }
             
             if (!validatedNode.type || !validNodeTypes.includes(validatedNode.type)) {
@@ -198,12 +195,11 @@ Create a comprehensive component diagram that shows:
         // Validate edges
         result.edges = result.edges.map((edge, index) => ({
             ...edge,
-            id: edge.id || `c4-edge-${index}-${Date.now()}`,
+            id: edge.id || nanoid(),
             type: 'straight',
             animated: edge.animated !== false,
         }));
 
-        console.log("analysisService: C4 Component result - nodes:", result.nodes.length, "edges:", result.edges.length);
         return result;
 
     } catch (error) {
@@ -352,10 +348,8 @@ export const convertMermaidToFlow = async (mermaidCode) => {
     const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
 
     if (apiKey) {
-        console.log("analysisService: Using OpenAI API for Flow conversion");
         return convertToFlowWithOpenAI(mermaidCode, apiKey);
     } else {
-        console.log("analysisService: No API key found, using mock data");
         return new Promise((resolve) => {
             setTimeout(() => {
                 resolve(getMockGraph());
@@ -523,7 +517,6 @@ const convertToFlowWithOpenAI = async (mermaidCode, apiKey) => {
             result.edges = [];
         }
         
-        console.log("analysisService: Converted result - nodes:", result.nodes.length, "edges:", result.edges.length);
         return result;
 
     } catch (error) {
@@ -564,10 +557,8 @@ export const generateCodeFromComponents = async (params) => {
     const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
 
     if (apiKey) {
-        console.log("analysisService: Using OpenAI API for code generation");
         return generateCodeWithOpenAI(params, apiKey);
     } else {
-        console.log("analysisService: No API key found, using mock code data");
         return new Promise((resolve) => {
             setTimeout(() => {
                 resolve(getMockCodeGeneration(params));
@@ -699,7 +690,6 @@ Output Format: ${outputFormat}`
             throw new Error("No code generated");
         }
 
-        console.log("analysisService: Code generation complete");
         return {
             code: result.code,
             description: result.description || 'Code generated successfully',
